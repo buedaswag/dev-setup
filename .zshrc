@@ -168,6 +168,20 @@ alias wpip='which pip3'
 # vscode
 export PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
 
+# cursor
+export PATH="$PATH:/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
+function cursor {
+    if [[ $# = 0 ]]
+    then
+        open -a "Cursor"
+    else
+        local argPath="$1"
+        [[ $1 = /* ]] && argPath="$1" || argPath="$PWD/${1#./}"
+        open -a "Cursor" "$argPath"
+    fi
+}
+
+
 # psql postgres
 export PATH=/Library/PostgreSQL/15/bin:$PATH
 # https://stackoverflow.com/questions/11180179/postgresql-disable-more-output
@@ -221,7 +235,10 @@ alias j='jupyter notebook'
 alias jn='jupyter notebook'
 alias hg='history | grep'
 alias tf='terraform'
-alias 'c.'='code .'
+# alias 'c.'='code .'
+alias c="cursor"
+alias cu="cursor"
+alias 'c.'='cursor .'
 alias py='python'
 alias lvenv='lsvenv'
 
@@ -245,8 +262,8 @@ alias gs='git status'
 alias sg='git status'
 alias ga='git add .'
 
-# Function to git add, commit and push in one command
-gacp() {
+# Function to git add, commit
+gac() {
     # Get the list of modified files (first 10 files)
     modified_files=$(git status -s | head -n 10 | awk '{print $2}')
 
@@ -262,6 +279,11 @@ gacp() {
 
     # Commit with the list of modified files as the message
     git commit -m "$commit_message"
+}
+
+# Function to git add, commit and push in one command
+gacp() {
+    gac || return 1  # Exit if gac fails
 
     # Get the current branch
     current_branch=$(git branch --show-current)
@@ -276,11 +298,12 @@ gacp() {
     git push origin "$current_branch"
 }
 
+
 # Short things are better (kubernetes)
 alias k='kubectl'
 
 # Short things are better (vscode)
-alias c='code'
+# alias c='code'
 
 # Short things are better (django)
 alias pm='python manage.py'
@@ -289,5 +312,17 @@ alias pm='python manage.py'
 alias fucking=sudo
 
 ############################################################
-# END ADDED BY MIG
+# END Short things are better - https://github.com/nibalizer/bash-tricks/blob/master/bash_tricks.sh
 ############################################################
+
+# openssl
+export PATH="/opt/homebrew/opt/openssl@1.1/bin:$PATH"
+
+export PATH="$HOME/.poetry/bin:$PATH"
+
+############################################################
+# gcloud google cloud
+############################################################
+
+# source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
+# source "$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
