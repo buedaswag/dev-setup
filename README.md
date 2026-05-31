@@ -10,5 +10,5 @@
 Add to `~/.zshrc`:
 
 ```bash
-source ~/ws/python-dev-setup/python-venv.sh
+source ~/ws/python-dev-setup/py-venvs.sh
 ```

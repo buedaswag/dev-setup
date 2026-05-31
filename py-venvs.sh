@@ -2,7 +2,7 @@
 # Python virtual environment management functions
 # Source this from .zshrc: source ~/ws/python-venv.sh
 
-export WORKON_HOME=~/.virtualenvs
+export WORKON_HOME=~/.py-venvs
 
 # Resolve a brew-installed Python binary by version (e.g., 3.13, 3.14)
 # Returns the full path to the python3.X binary, or falls back to default python3
