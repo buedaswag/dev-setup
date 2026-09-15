@@ -1,0 +1,100 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/migueldias/ws/personal/CV/**)",
+      "Read(file_path:/Users/migueldias/ws/**)",
+      "Read(file_path:/Users/migueldias/.claude/**)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(file:*)",
+      "Bash(stat:*)",
+      "Bash(which:*)",
+      "Bash(tree:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(bd blocked*)",
+      "Bash(bd children*)",
+      "Bash(bd context*)",
+      "Bash(bd count*)",
+      "Bash(bd diff*)",
+      "Bash(bd export*)",
+      "Bash(bd graph*)",
+      "Bash(bd help*)",
+      "Bash(bd history*)",
+      "Bash(bd human*)",
+      "Bash(bd info*)",
+      "Bash(bd lint*)",
+      "Bash(bd list*)",
+      "Bash(bd memories*)",
+      "Bash(bd onboard*)",
+      "Bash(bd prime*)",
+      "Bash(bd query*)",
+      "Bash(bd quickstart*)",
+      "Bash(bd ready*)",
+      "Bash(bd recall*)",
+      "Bash(bd search*)",
+      "Bash(bd show*)",
+      "Bash(bd stale*)",
+      "Bash(bd state*)",
+      "Bash(bd status*)",
+      "Bash(bd statuses*)",
+      "Bash(bd types*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.tfvars)",
+      "Read(**/*.tfvars.json)",
+      "Read(**/.tfenv)",
+      "Read(**/.tfenv.*)",
+      "Bash(cat *.env*)",
+      "Bash(cat *.tfvars*)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "model": "opus",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cp /Users/migueldias/ws/personal/interview-prep/.claude/skills/interview-prep.md ~/.claude/skills/interview-prep.md && cp /Users/migueldias/ws/personal/CV/.cursor/skills/adapt-cv/SKILL.md ~/.claude/skills/adapt-cv/SKILL.md"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/migueldias/ws/python-dev-setup/claude/sync-settings.sh 2>/dev/null || true",
+            "async": true
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "medium",
+  "tui": "fullscreen",
+  "agentPushNotifEnabled": true
+}
