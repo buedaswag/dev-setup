@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/migueldias/ws/python-dev-setup/claude/sync-settings.sh 2>/dev/null || true",
+            "command": "/Users/migueldias/ws/dev-setup/claude/sync.sh 2>/dev/null || true",
             "async": true
           }
         ]
