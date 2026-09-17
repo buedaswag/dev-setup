@@ -1,0 +1,17 @@
+{
+  "_comment": "Rules for ~/ws/dev-setup/claude/guards/command_guard.py. The replacement is whatever the README documents -- when the README changes, this file moves, not the other way round.",
+
+  "rewrite_to": "docker compose up --build -d",
+  "ready_wait": "until curl -sf localhost:4444 >/dev/null; do sleep 1; done",
+  "skip_if": ["docker"],
+
+  "deny": {
+    "pattern": "(?:npm|yarn|pnpm)\\s+(?:install|i|ci|add)\\b",
+    "reason": "Blocked by the command guard: never install packages on the host. Add the dependency to package.json (or requirements.txt for Python) and let the Dockerfile install it on the next `{rewrite_to}`. See CLAUDE.md."
+  },
+
+  "rewrite": {
+    "pattern": "(?:npm|npx|yarn|pnpm|astro)\\b",
+    "reason": "Blocked by the command guard: this repo builds and runs in Docker only. Rewritten to the command in the README: `{rewrite_to}`. See CLAUDE.md."
+  }
+}
