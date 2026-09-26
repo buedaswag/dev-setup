@@ -1,136 +1,44 @@
 # Dev Setup
 
-How my machine and my agents are set up. Three layers: the **machine**, the **conventions** I
-work by, and the **enforcement** that makes a convention non-optional.
+How my machine and my Claude Code agents are set up. Lives at `~/ws/dev-setup`.
 
 ## Machine
 
-Mac apps:
-
 - [Maccy](https://maccy.app/) — clipboard manager
 - [Rectangle](https://rectangleapp.com/) — window management
-
-Shell config lives in `zsh/`. This repo always lives at `~/ws/dev-setup`, so a new machine needs
-one copy:
-
-```bash
-cp ~/ws/dev-setup/zsh/.zshrc ~/.zshrc
-```
-
-That's the whole install — no script, because `zsh/.zshrc` is a four-line table of contents and
-everything with a body sits beside it and is sourced from there:
-
-| File | Holds |
-| --- | --- |
-| `zsh/.zshrc` | the four `source` lines, and nothing else. The one file that gets copied |
-| `zsh/oh-my-zsh.zsh` | framework + prompt. Returns early unless omz is installed, so a fresh laptop gets a working shell instead of an error at line 1 |
-| `zsh/paths.zsh` | `PATH` and tool env; sources `zsh/py-venvs.sh` |
-| `zsh/py-venvs.sh` | python venv helpers, auto-activation |
-| `zsh/aliases.zsh` | aliases and one-liners |
-| `zsh/functions.zsh` | `cursor`, `azlogin`, `tfcleanup`, `gac`, `gacp` |
-
-Because those are sourced in place, editing them is live — only `.zshrc` itself is a copy, and it
-rarely changes. Nothing syncs it automatically; see the backlog.
-
-They're listed one by one rather than globbed: oh-my-zsh owns the prompt and has to run first, and
-`zsh/*.zsh` would sort `aliases.zsh` ahead of it.
+- Shell config is in `zsh/`. Install: `cp ~/ws/dev-setup/zsh/.zshrc ~/.zshrc` (it sources the
+  rest of `zsh/` in place, so edits there are live).
 
 ## Conventions
 
-`claude/CLAUDE.md` is how I work: one-page plans in `.claude/plans/`, tests before code, small
-batches.
-
-Canonical copy is `~/.claude/CLAUDE.md`, which Claude Code loads in every project — nothing to
-sync between projects. This repo is the mirror. `claude/sync.sh` runs as a `Stop` hook, copies
-the paths in `PATHS` out of `~/.claude` when they change, and commits just those paths. JSON is
-validated before copying and the `git add` is path-limited, so it can't clobber a good file or
-sweep up unrelated work.
+| Path | What it is | Where to edit |
+| --- | --- | --- |
+| `claude/CLAUDE.md`, `claude/settings.json` | Copies of my global `~/.claude` config | `~/.claude` — `claude/sync.sh` (a `Stop` hook) copies changes here and commits them |
+| `claude/guards/` | The command guard engine | Here — `~/.claude/settings.json` runs it from this repo |
+| `.claude/` | This repo's own project config (`plans/`, `guard-rules.json`), same as any project | Here |
 
 A project's own `CLAUDE.md` holds only what's specific to it — ports, build command, tests.
 
 ## Enforcement
 
-A rule in prose is a suggestion: an agent reads "everything runs in Docker" and still proposes
-`npm run build`. `claude/guards/command_guard.py` is a `PreToolUse` hook that matches every
-Bash command statically, before the prompt appears, and rewrites it to the documented command
-or denies it with a reason. No prompt, no LLM in the loop.
+`claude/guards/command_guard.py` is a global `PreToolUse` hook that checks every Bash command
+against the project's `.claude/guard-rules.json`:
 
-The hook is registered once, globally, in `~/.claude/settings.json`, so it runs in every project:
+- **Rules:** `deny` blocks a command with a reason; `rewrite` swaps it for `rewrite_to` (the
+  README's documented command). See `tests/fixtures/docker-node-rules.json` for an example.
+- **Static:** only real commands match — not text in strings, heredocs or comments.
+- **No rules file:** blocks once and asks whether to add rules. A `{"_comment": "..."}` stub means
+  "no rules" and never asks again.
+- **Fails closed:** broken rules, or a crashing guard, block.
 
-```
-python3 "$HOME/ws/dev-setup/claude/guards/command_guard.py" || exit 2
-```
+## Secret leak gate
 
-`|| exit 2` is the fail-closed part: 2 is the only exit code Claude Code treats as blocking, and
-an unexpected crash exits 1. If this repo isn't cloned, Python exits 2 with the missing path.
+`.githooks/pre-commit` runs gitleaks (Docker, pinned) on every commit and blocks any that carries
+a credential — enable with `git config core.hooksPath .githooks`.
 
-Two directories, one letter apart, and they mean different things:
+Tests: `python3 -m unittest discover tests/`
 
-| | |
-| --- | --- |
-| `claude/` | the mirror of my **global** `~/.claude` config — `settings.json`, `CLAUDE.md`, the guard engine. Shared by every project. |
-| `.claude/` | this repo's **own** project-local Claude config — `plans/`, and its `guard-rules.json`. Like any other project's. |
-
-The engine is shared; the opinions aren't. A project supplies `.claude/guard-rules.json`:
-
-```json
-{
-  "rewrite_to": "docker compose up --build -d",
-  "ready_wait": "until curl -sf localhost:4444 >/dev/null; do sleep 1; done",
-  "skip_if": ["docker"],
-  "deny":    { "pattern": "(?:npm|yarn|pnpm)\\s+(?:install|i|ci|add)\\b", "reason": "..." },
-  "rewrite": { "pattern": "(?:npm|npx|yarn|pnpm|astro)\\b",              "reason": "..." }
-}
-```
-
-Patterns match in command position only, and heredocs, quoted strings and comments are masked
-first — writing *about* `npm install` isn't running it. Compound commands get only the offending
-segment rewritten, but a deny match anywhere denies the whole command. `ready_wait` is appended
-when a step follows, so it can't race a detached server.
-
-Because the hook is global, a project with no rules file has never been asked rather than opted
-out — so the guard asks, once:
-
-Rules are read from `.claude/guard-rules.json` and nowhere else. One location means one place to
-look when the guard surprises you, and no project where the behaviour depends on which of two
-files someone last edited. A copy at the project root is not rules: that project reads as *never
-asked*, so the guard asks — which is what gets the file moved.
-
-| Project state | Guard does |
-| --- | --- |
-| No rules file | Blocks once and tells the agent to ask whether to create rules. Answer no and it writes `{"_comment": "..."}`, which never asks again. |
-| `{}` or a comment-only stub | Nothing. Every command runs. |
-| Real rules | Enforces them. |
-| Unusable rules | Blocks until fixed — opted in and broken is the one case that must never fail open. |
-
-### The secret gate
-
-Shell config is exactly where a token ends up when I'm in a hurry, and `claude/sync.sh` commits
-on its own from a `Stop` hook — no prompt, no human. So `.githooks/pre-commit` refuses any commit
-whose files carry a credential. Install it once per repo:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-gitleaks in Docker, pinned by digest, ~260ms. Docker so the gate doesn't depend on a venv being
-on `PATH` — `zsh/py-venvs.sh` activates one, and a gate that silently stops gating is worse than
-none. Pinned because a floating tag changes the gate under me and re-pulls on every commit. Pull
-and run only; it never builds.
-
-It scans the files a commit could carry — tracked, plus untracked that `.gitignore` doesn't
-exclude — not the whole directory. `--no-git` walks the filesystem and ignores `.gitignore`, so
-scanning the directory means flagging `__pycache__`, `node_modules` and `.venv`, where a finding
-is always a false positive. A gate that cries wolf is a gate I switch off.
-
-No Docker means **blocked**, not passed: a commit that can't be scanned isn't waved through. When
-a finding is wrong, `git commit --no-verify`, having looked at it.
-
-```bash
-python3 -m unittest discover tests/
-```
-
-## Refactor Along the Way
+## Backlog: Refactor Along the Way
 
 Known and deliberately not done yet. Each one gets picked up the next time I'm in that file.
 
