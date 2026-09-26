@@ -1,32 +1,46 @@
-# Oh My Zsh + Powerlevel10k. Sourced from .zshrc; does nothing if omz isn't installed.
+# Oh My Zsh + Powerlevel10k. Sourced from .zshrc; asks only for what is installed.
 #
 # Split out because it is ~100 lines of framework boilerplate, most of it omz's own
 # commented-out defaults, and it was burying the dozen lines that are actually mine.
 #
-# The guard matters on a fresh machine: `source $ZSH/oh-my-zsh.sh` against a missing
-# install fails the whole .zshrc, and a shell that will not start is a bad first five
-# minutes on a new laptop. Install omz and the settings apply themselves.
+# The guards matter on a fresh machine, where omz, p10k and the custom plugins land
+# one at a time. `source $ZSH/oh-my-zsh.sh` against a missing install fails the whole
+# .zshrc, and a missing theme or plugin makes omz print "not found" above every
+# prompt. Install each piece and its settings apply themselves.
+# tests/test_oh_my_zsh.py pins this down.
 
 export ZSH="$HOME/.oh-my-zsh"
+ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
 
-# Not installed yet: leave the shell alone rather than breaking it.
-[[ -d "$ZSH" ]] || return 0
+# Not installed (or a leftover, empty dir): leave the shell alone rather than breaking it.
+[[ -r "$ZSH/oh-my-zsh.sh" ]] || return 0
 
-# Powerlevel10k instant prompt. Must stay near the top, before anything that writes
-# to the console -- password prompts and [y/n] confirmations have to come first.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+# Where omz itself would look: custom first, then bundled.
+_omz_has() { [[ -d "$ZSH_CUSTOM/$1" || -d "$ZSH/$1" ]] }
+
+if _omz_has themes/powerlevel10k; then
+  # Instant prompt. Must stay near the top, before anything that writes to the
+  # console -- password prompts and [y/n] confirmations have to come first.
+  if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+    source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+  fi
+  ZSH_THEME="powerlevel10k/powerlevel10k"
+else
+  ZSH_THEME="robbyrussell"
 fi
 
-ZSH_THEME="powerlevel10k/powerlevel10k"
-
 # Too many plugins slow down shell startup, so this stays short.
-plugins=( git zsh-syntax-highlighting zsh-autosuggestions )
+plugins=()
+for _p in git zsh-syntax-highlighting zsh-autosuggestions; do
+  _omz_has "plugins/$_p" && plugins+=( "$_p" )
+done
+unset _p
 
 source "$ZSH/oh-my-zsh.sh"
 
-# Prompt config: `p10k configure` writes ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# Prompt config: `p10k configure` writes ~/.p10k.zsh. Without p10k it is just noise.
+[[ "$ZSH_THEME" == powerlevel10k/* && -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+unfunction _omz_has
 
 ############################################################
 # omz options I'm not using, kept for reference
