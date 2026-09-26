@@ -34,7 +34,7 @@ When a rule matters, make it a static check. `claude/guards/command_guard.py` in
 appears and either rewrites it to the documented equivalent or denies it with a reason the
 agent can act on. No prompt, no LLM in the loop.
 
-Per-project rules go in `guard-rules.json` at the project root. The engine is shared; the
+Per-project rules go in `.claude/guard-rules.json` in the project. The engine is shared; the
 rules are not. See that repo's README for wiring a project up.
 
 ## Documented Commands Are The Source Of Truth
