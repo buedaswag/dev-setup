@@ -76,7 +76,8 @@ class Repo:
             capture_output=True,
             text=True,
             env=env,
-            cwd=str(self.path),
+            # Not the project: the hook must find it through CLAUDE_PROJECT_DIR.
+            cwd=tempfile.gettempdir(),
         )
 
     def state(self):
@@ -88,6 +89,10 @@ class Repo:
 
 
 PASSING = {"batch": {"check": "true", "commit_at": 3, "push_at": 5}}
+
+
+def batch(**overrides):
+    return {"batch": {**PASSING["batch"], **overrides}}
 
 
 class TestCountingChanges(unittest.TestCase):
@@ -150,6 +155,65 @@ class TestCountingChanges(unittest.TestCase):
             [sys.executable, str(GUARD)], input="not json", capture_output=True, text=True
         )
         self.assertEqual(result.returncode, 0)
+
+
+
+class TestTheCheck(unittest.TestCase):
+    """The project's check runs after every change; a failure goes to the agent."""
+
+    def test_passing_check_is_silent_to_the_agent(self):
+        repo = Repo(self, PASSING)
+        result = repo.edit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr.strip(), "")
+
+    def test_failing_check_goes_back_to_the_agent(self):
+        """Exit 2 is what Claude Code feeds back to the agent from a PostToolUse hook."""
+        repo = Repo(self, batch(check="echo 'boom: test_x failed'; exit 1"))
+        result = repo.edit()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("boom: test_x failed", result.stderr)
+
+    def test_failing_check_output_includes_stderr(self):
+        repo = Repo(self, batch(check="echo 'on stderr' >&2; exit 1"))
+        self.assertIn("on stderr", repo.edit().stderr)
+
+    def test_check_runs_in_the_project(self):
+        """`tests/` in the check means the project's tests, wherever the hook runs from."""
+        repo = Repo(self, batch(check="test -f .claude/guard-rules.json"))
+        self.assertEqual(repo.edit().returncode, 0)
+
+    def test_a_failing_change_still_counts(self):
+        """It is still a change since the last commit."""
+        repo = Repo(self, batch(check="false"))
+        repo.edit()
+        self.assertEqual(repo.state()["changes"], 1)
+
+
+class TestBadBatchConfig(unittest.TestCase):
+    """A malformed `batch` key is a broken rules file, and the command guard blocks on those."""
+
+    @staticmethod
+    def load():
+        sys.path.insert(0, str(GUARD.parent))
+        from command_guard import BadRules, Rules
+
+        return Rules, BadRules
+
+    def test_batch_without_a_check_is_bad(self):
+        Rules, BadRules = self.load()
+        with self.assertRaises(BadRules):
+            Rules({"batch": {"commit_at": 3, "push_at": 5}})
+
+    def test_batch_counts_must_be_positive_whole_numbers(self):
+        Rules, BadRules = self.load()
+        for bad in (0, -1, "3", 2.5, None):
+            with self.assertRaises(BadRules, msg=repr(bad)):
+                Rules({"batch": {"check": "true", "commit_at": bad, "push_at": 5}})
+
+    def test_good_batch_loads(self):
+        Rules, _ = self.load()
+        self.assertEqual(Rules(PASSING).batch, PASSING["batch"])
 
 
 if __name__ == "__main__":

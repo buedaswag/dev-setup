@@ -66,6 +66,20 @@ def count_change(project):
     return changes
 
 
+def run_check(project, check):
+    """Run the project's check from the project root; return (passed, output)."""
+    result = subprocess.run(
+        check, shell=True, cwd=project, capture_output=True, text=True
+    )
+    return result.returncode == 0, (result.stdout + result.stderr).strip()
+
+
+def block(message):
+    """Exit 2: for PostToolUse, Claude Code shows stderr to the agent."""
+    print(message, file=sys.stderr)
+    sys.exit(2)
+
+
 def main():
     project = os.environ.get("CLAUDE_PROJECT_DIR")
     if not project:
@@ -88,6 +102,13 @@ def main():
         return
 
     count_change(project)
+
+    passed, output = run_check(project, rules.batch["check"])
+    if not passed:
+        block(
+            f"The check failed after this change (`{rules.batch['check']}`). Fix it "
+            f"before anything else -- nothing gets committed while it fails.\n\n{output}"
+        )
 
 
 if __name__ == "__main__":
