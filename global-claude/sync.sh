@@ -8,7 +8,7 @@ set -euo pipefail
 
 REPO="$HOME/ws/dev-setup"
 SRC_ROOT="$HOME/.claude"
-DEST_ROOT="$REPO/claude"
+DEST_ROOT="$REPO/global-claude"
 
 # Paths relative to ~/.claude. Add a line to sync one more thing.
 PATHS=(
@@ -34,7 +34,7 @@ for rel in "${PATHS[@]}"; do
 
   mkdir -p "$(dirname "$dest")"
   cp "$src" "$dest"
-  changed+=("claude/$rel")
+  changed+=("global-claude/$rel")
 done
 
 [ ${#changed[@]} -eq 0 ] && exit 0

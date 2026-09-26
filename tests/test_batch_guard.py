@@ -19,7 +19,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-GUARD = ROOT / "claude" / "guards" / "batch_guard.py"
+GUARD = ROOT / "global-claude" / "guards" / "batch_guard.py"
 
 
 def git(repo, *args):

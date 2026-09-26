@@ -18,7 +18,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-GUARD = ROOT / "claude" / "guards" / "command_guard.py"
+GUARD = ROOT / "global-claude" / "guards" / "command_guard.py"
 RULES = ROOT / "tests" / "fixtures" / "docker-node-rules.json"
 DOCKER_UP = "docker compose up --build -d"
 

@@ -7,7 +7,7 @@
 # for what gets in around this hook, not the gate itself.
 #
 # Two callers make that matter here specifically: I commit by hand all day, and
-# claude/sync.sh commits on its own from a Stop hook, with no prompt and no human
+# global-claude/sync.sh commits on its own from a Stop hook, with no prompt and no human
 # in the loop. Both go through pre-commit.
 #
 # Scans the whole work tree, not just staged files: a secret sitting unstaged in

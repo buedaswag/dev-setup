@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/ws/dev-setup/claude/guards/command_guard.py\" || exit 2"
+            "command": "python3 \"$HOME/ws/dev-setup/global-claude/guards/command_guard.py\" || exit 2"
           }
         ]
       }
@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/ws/dev-setup/claude/guards/batch_guard.py\""
+            "command": "python3 \"$HOME/ws/dev-setup/global-claude/guards/batch_guard.py\""
           }
         ]
       }
@@ -95,7 +95,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/migueldias/ws/dev-setup/claude/sync.sh 2>/dev/null || true",
+            "command": "/Users/migueldias/ws/dev-setup/global-claude/sync.sh 2>/dev/null || true",
             "async": true
           }
         ]

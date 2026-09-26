@@ -13,15 +13,15 @@ How my machine and my Claude Code agents are set up. Lives at `~/ws/dev-setup`.
 
 | Path | What it is | Where to edit |
 | --- | --- | --- |
-| `claude/CLAUDE.md`, `claude/settings.json` | Copies of my global `~/.claude` config | `~/.claude` — `claude/sync.sh` (a `Stop` hook) copies changes here and commits them |
-| `claude/guards/` | The command guard engine | Here — `~/.claude/settings.json` runs it from this repo |
+| `global-claude/CLAUDE.md`, `global-claude/settings.json` | Copies of my global `~/.claude` config | `~/.claude` — `global-claude/sync.sh` (a `Stop` hook) copies changes here and commits them |
+| `global-claude/guards/` | The command guard engine | Here — `~/.claude/settings.json` runs it from this repo |
 | `.claude/` | This repo's own project config (`plans/`, `guard-rules.json`), same as any project | Here |
 
 A project's own `CLAUDE.md` holds only what's specific to it — ports, build command, tests.
 
 ## Enforcement
 
-`claude/guards/command_guard.py` is a global `PreToolUse` hook that checks every Bash command
+`global-claude/guards/command_guard.py` is a global `PreToolUse` hook that checks every Bash command
 against the project's `.claude/guard-rules.json`:
 
 - **Rules:** `deny` blocks a command with a reason; `rewrite` swaps it for `rewrite_to` (the
@@ -31,7 +31,7 @@ against the project's `.claude/guard-rules.json`:
   "no rules" and never asks again.
 - **Fails closed:** broken rules, or a crashing guard, block.
 
-`claude/guards/batch_guard.py` is a global `PostToolUse` hook on `Edit|Write|NotebookEdit` that
+`global-claude/guards/batch_guard.py` is a global `PostToolUse` hook on `Edit|Write|NotebookEdit` that
 makes "commit often" a check. It reads the `batch` key of the same rules file —
 `{"check": "<the README's test command>", "commit_at": 3, "push_at": 5}` — and after every
 change inside the project:
@@ -53,7 +53,7 @@ Tests: `python3 -m unittest discover tests/`
 
 Known and deliberately not done yet. Each one gets picked up the next time I'm in that file.
 
-- **Auto-commit `.zshrc` on change.** Manual `cp` for now. `claude/sync.sh` only walks paths under
+- **Auto-commit `.zshrc` on change.** Manual `cp` for now. `global-claude/sync.sh` only walks paths under
   `~/.claude`, so this needs its `PATHS` generalised to `src:dest` pairs. Deliberately second: an
   auto-committer pointed at `.zshrc` is what made the secret gate a prerequisite, and the gate
   should have some mileage on it before anything commits that file unattended.

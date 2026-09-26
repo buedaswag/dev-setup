@@ -29,7 +29,7 @@ one revert, not an archaeology session.
 A rule written in prose is a suggestion: an agent reads it and still proposes the thing it
 says not to do, and I'm the one who has to say No at the permission prompt.
 
-When a rule matters, make it a static check. `claude/guards/command_guard.py` in
+When a rule matters, make it a static check. `global-claude/guards/command_guard.py` in
 `~/ws/dev-setup` is a `PreToolUse` hook that matches every Bash command before the prompt
 appears and either rewrites it to the documented equivalent or denies it with a reason the
 agent can act on. No prompt, no LLM in the loop.

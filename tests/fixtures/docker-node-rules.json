@@ -1,5 +1,5 @@
 {
-  "_comment": "Rules for ~/ws/dev-setup/claude/guards/command_guard.py. The replacement is whatever the README documents -- when the README changes, this file moves, not the other way round.",
+  "_comment": "Rules for ~/ws/dev-setup/global-claude/guards/command_guard.py. The replacement is whatever the README documents -- when the README changes, this file moves, not the other way round.",
 
   "rewrite_to": "docker compose up --build -d",
   "ready_wait": "until curl -sf localhost:4444 >/dev/null; do sleep 1; done",
