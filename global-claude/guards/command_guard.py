@@ -31,8 +31,7 @@ because the prose inside it contained "PR #30 (astro 5->7)":
   3. Never drop an install. If any segment is a deny match, the whole command is
      denied -- rewriting one half while discarding the other is the same bug.
 
-The replacement is whatever the project's README documents. When the README
-changes, change `guard-rules.json` to match -- the README is the source of truth.
+The replacement, `rewrite_to`, is the run command the project's README documents.
 """
 
 import json

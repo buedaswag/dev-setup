@@ -37,7 +37,8 @@ agent can act on. No prompt, no LLM in the loop.
 Per-project rules go in `.claude/guard-rules.json` in the project. The engine is shared; the
 rules are not. See that repo's README for wiring a project up.
 
-## Documented Commands Are The Source Of Truth
+## The Code Is The Source Of Truth
 
-When a guard rewrites a command, it rewrites to whatever the project's `README` documents. If
-the README and the guard disagree, the README is right and the guard is the one that moves.
+The code is what actually runs: the compose file, the git hooks, CI. The README describes it and
+points at it; everything else points at the README instead of restating it. When the README
+and the code disagree, the README is stale -- fix it, and a guard's `rewrite_to` moves with it.
