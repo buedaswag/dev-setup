@@ -85,6 +85,8 @@ class Rules:
                     been started detached and is not up yet
       skip_if       substrings that mean "this segment is already correct"
       deny/rewrite  {pattern, reason}; `{rewrite_to}` in a reason is filled in
+      batch         {check, commit_at, push_at} for the batch guard
+                    (batch_guard.py); absent means that hook does nothing
     """
 
     def __init__(self, data):
@@ -95,6 +97,15 @@ class Rules:
         self.skip_if = data.get("skip_if", [])
         if data.get("rewrite") and not self.rewrite_to:
             raise BadRules("a `rewrite` rule needs `rewrite_to` -- nothing to rewrite into")
+
+        self.batch = data.get("batch")
+        if self.batch is not None:
+            batch = self.batch
+            if not isinstance(batch, dict) or not isinstance(batch.get("check"), str):
+                raise BadRules("`batch` needs a `check` command")
+            for key in ("commit_at", "push_at"):
+                if not isinstance(batch.get(key), int) or batch[key] < 1:
+                    raise BadRules(f"`batch.{key}` must be a whole number, 1 or more")
 
         def compile_rule(key):
             rule = data.get(key)
