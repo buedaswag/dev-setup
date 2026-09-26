@@ -227,21 +227,27 @@ class TestRulesLoading(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "")
 
     def test_project_dir_is_used_to_find_the_rules(self):
-        stub = self.rules_file("{}")
-        result = run_guard("npm install", rules=None, project_dir=stub.parent)
+        """CLAUDE_PROJECT_DIR plus the one location: `.claude/guard-rules.json`."""
+        project = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(project, ignore_errors=True))
+        (project / ".claude").mkdir()
+        (project / ".claude" / "guard-rules.json").write_text("{}")
+        result = run_guard("npm install", rules=None, project_dir=project)
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), "")
 
 
 class TestWhereTheRulesLive(unittest.TestCase):
-    """`.claude/guard-rules.json` is the home; the project root still works.
+    """`.claude/guard-rules.json` is the only place rules are read from.
 
-    Project-local Claude config belongs under `.claude/`, next to `plans/` and
-    `settings.json`, not loose at the root. But landing-page already has its rules
-    at the root, and moving the lookup without a fallback would silently unguard
-    the one project that actually depends on the guard -- silently, because a
-    missing file reads as "never been asked", so it would just start asking again
-    rather than erroring. So `.claude/` is preferred and the root is still read.
+    Project-local Claude config lives under `.claude/`, next to `plans/` and
+    `settings.json`. Not "preferred there" -- that is the definition. One location
+    means one place to look when the guard does something surprising, and no repo
+    where the answer depends on which of two files someone edited.
+
+    A file at the project root is not rules. The project reads as never asked, and
+    the guard asks -- which is the correct outcome: the answer is to move the file,
+    and the question is what prompts that.
     """
 
     def project(self, at_claude=None, at_root=None):
@@ -262,23 +268,25 @@ class TestWhereTheRulesLive(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertIn("from .claude", result.stdout)
 
-    def test_rules_at_the_project_root_still_work(self):
-        """landing-page keeps its copy at the root. Don't unguard it."""
+    def test_rules_at_the_project_root_are_not_rules(self):
+        """The root is not a location. A file there means the project was never asked."""
         deny_all_npm = '{"deny": {"pattern": "npm\\\\b", "reason": "from root"}}'
         project = self.project(at_root=deny_all_npm)
         result = run_guard("npm install", rules=None, project_dir=project)
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("from root", result.stdout)
-
-    def test_dot_claude_wins_when_both_exist(self):
-        """One answer per project. The new location is the one that counts."""
-        project = self.project(
-            at_claude='{"deny": {"pattern": "npm\\\\b", "reason": "from .claude"}}',
-            at_root='{"deny": {"pattern": "npm\\\\b", "reason": "from root"}}',
+        self.assertEqual(
+            result.returncode,
+            2,
+            "rules at the project root were honoured -- there is one location, and "
+            "this is not it",
         )
+        self.assertNotIn("from root", result.stdout + result.stderr)
+
+    def test_a_root_file_does_not_stop_the_question(self):
+        """Otherwise a stale root file silently unguards a project forever."""
+        project = self.project(at_root='{"_comment": "opted out, wrong place"}')
         result = run_guard("npm install", rules=None, project_dir=project)
-        self.assertIn("from .claude", result.stdout)
-        self.assertNotIn("from root", result.stdout)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(os.path.join(".claude", "guard-rules.json"), result.stderr)
 
     def test_the_question_names_the_project_not_the_dot_claude_folder(self):
         """"Do you want guard rules in .claude?" is not a question about a project.

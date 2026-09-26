@@ -10,12 +10,6 @@ Mac apps:
 - [Maccy](https://maccy.app/) — clipboard manager
 - [Rectangle](https://rectangleapp.com/) — window management
 
-Python venvs — add to `~/.zshrc`:
-
-```bash
-source ~/ws/dev-setup/py-venvs.sh
-```
-
 Shell config. This repo always lives at `~/ws/dev-setup`, so a new machine needs one copy:
 
 ```bash
@@ -28,7 +22,8 @@ everything with a body lives in `zsh/` and is sourced from there:
 | File | Holds |
 | --- | --- |
 | `zsh/oh-my-zsh.zsh` | framework + prompt. Returns early unless omz is installed, so a fresh laptop gets a working shell instead of an error at line 1 |
-| `zsh/paths.zsh` | `PATH`, tool env, `py-venvs.sh` |
+| `zsh/paths.zsh` | `PATH` and tool env; sources `zsh/py-venvs.sh` |
+| `zsh/py-venvs.sh` | python venv helpers, auto-activation |
 | `zsh/aliases.zsh` | aliases and one-liners |
 | `zsh/functions.zsh` | `cursor`, `azlogin`, `tfcleanup`, `gac`, `gacp` |
 
@@ -91,9 +86,10 @@ when a step follows, so it can't race a detached server.
 Because the hook is global, a project with no rules file has never been asked rather than opted
 out — so the guard asks, once:
 
-Rules are read from `.claude/guard-rules.json`, falling back to `guard-rules.json` at the project
-root so projects that already keep it there keep working. A missing file reads as *never asked*,
-so dropping the fallback would quietly unguard them rather than failing loudly.
+Rules are read from `.claude/guard-rules.json` and nowhere else. One location means one place to
+look when the guard surprises you, and no project where the behaviour depends on which of two
+files someone last edited. A copy at the project root is not rules: that project reads as *never
+asked*, so the guard asks — which is what gets the file moved.
 
 | Project state | Guard does |
 | --- | --- |
@@ -113,7 +109,7 @@ git config core.hooksPath githooks
 ```
 
 gitleaks in Docker, pinned by digest, ~260ms. Docker so the gate doesn't depend on a venv being
-on `PATH` — `py-venvs.sh` activates one, and a gate that silently stops gating is worse than
+on `PATH` — `zsh/py-venvs.sh` activates one, and a gate that silently stops gating is worse than
 none. Pinned because a floating tag changes the gate under me and re-pulls on every commit. Pull
 and run only; it never builds.
 
@@ -137,9 +133,6 @@ Known and deliberately not done yet. Each one gets picked up the next time I'm i
   `~/.claude`, so this needs its `PATHS` generalised to `src:dest` pairs. Deliberately second: an
   auto-committer pointed at `.zshrc` is what made the secret gate a prerequisite, and the gate
   should have some mileage on it before anything commits that file unattended.
-- **`py-venvs.sh` is still at the root**, while every other shell file is in `zsh/`. Left alone
-  because the path is in my live `~/.zshrc` and in this README, so moving it is a rename plus two
-  edits, done when I'm next in that file.
 - **Let one repo reuse another's guard rules** — an `extends` key in `guard-rules.json` resolved
   before `Rules.__init__`. Today every repo keeps its own copy, and copy-paste is fine until
   there are enough of them to drift.

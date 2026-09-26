@@ -9,7 +9,7 @@ eval "$(/opt/homebrew/bin/brew shellenv zsh)"
 export PATH="$HOME/.tfenv/bin:$PATH"
 
 # python venvs
-source ~/ws/dev-setup/py-venvs.sh
+source ~/ws/dev-setup/zsh/py-venvs.sh
 
 # vscode
 export PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"

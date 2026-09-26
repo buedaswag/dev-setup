@@ -15,7 +15,7 @@
 #
 # Scanner is gitleaks in Docker, pinned by digest:
 #   - Docker, so the gate does not depend on an activated venv being on PATH.
-#     py-venvs.sh auto-activates one, and a gate that silently stops gating the
+#     zsh/py-venvs.sh auto-activates one, and a gate that silently stops gating the
 #     day that changes is worse than no gate.
 #   - the same tool CI runs, so local and CI cannot drift apart.
 #   - by digest, because a floating tag changes the gate under me and re-pulls on
