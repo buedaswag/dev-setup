@@ -5,7 +5,7 @@ path can carry a token into version control, and once it is committed and pushed
 only remaining move is rewriting history. A scan in CI runs after that point, so it
 is a backstop, not a gate. The gate is here, before the commit, on this machine.
 
-These tests drive `githooks/pre-commit` through its one seam: it scans the directory
+These tests drive `.githooks/pre-commit` through its one seam: it scans the directory
 given as argv[1], defaulting to the repo root. Everything else -- which scanner, in
 what container, pinned how -- is an implementation detail these tests pin down only
 where getting it wrong would silently stop the gating.
@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-HOOK = REPO_ROOT / "githooks" / "pre-commit"
+HOOK = REPO_ROOT / ".githooks" / "pre-commit"
 
 # A GitHub personal access token by shape: `ghp_` and 36 random alphanumerics.
 # Randomly generated for this test, never issued by anyone, matches no account.

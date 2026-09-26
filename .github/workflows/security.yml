@@ -1,12 +1,12 @@
 name: Security
 
-# Backstop, not the gate. githooks/pre-commit is the gate -- it runs before the
+# Backstop, not the gate. .githooks/pre-commit is the gate -- it runs before the
 # commit exists, which is the only point where a secret can still be stopped.
 # By the time this job runs, anything it finds is already pushed and the only
 # remaining fix is rewriting history.
 #
 # It earns its place by catching what gets in around the hook: a commit made with
-# --no-verify, or from a clone where nobody ran `git config core.hooksPath githooks`.
+# --no-verify, or from a clone where nobody ran `git config core.hooksPath .githooks`.
 #
 # Same scanner as the hook, so local and CI cannot disagree about what a secret is.
 

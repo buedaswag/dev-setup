@@ -23,7 +23,7 @@
 # Pull and run only. Never build -- a hook that builds is a hook I disable.
 #
 # Install (once per repo):
-#   git config core.hooksPath githooks
+#   git config core.hooksPath .githooks
 #
 # Bypass, when I have looked at the finding and it is wrong:
 #   git commit --no-verify

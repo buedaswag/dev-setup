@@ -10,25 +10,30 @@ Mac apps:
 - [Maccy](https://maccy.app/) — clipboard manager
 - [Rectangle](https://rectangleapp.com/) — window management
 
-Shell config. This repo always lives at `~/ws/dev-setup`, so a new machine needs one copy:
+Shell config lives in `zsh/`. This repo always lives at `~/ws/dev-setup`, so a new machine needs
+one copy:
 
 ```bash
-cp ~/ws/dev-setup/.zshrc ~/.zshrc
+cp ~/ws/dev-setup/zsh/.zshrc ~/.zshrc
 ```
 
-That's the whole install — no script, because `.zshrc` is a four-line table of contents and
-everything with a body lives in `zsh/` and is sourced from there:
+That's the whole install — no script, because `zsh/.zshrc` is a four-line table of contents and
+everything with a body sits beside it and is sourced from there:
 
 | File | Holds |
 | --- | --- |
+| `zsh/.zshrc` | the four `source` lines, and nothing else. The one file that gets copied |
 | `zsh/oh-my-zsh.zsh` | framework + prompt. Returns early unless omz is installed, so a fresh laptop gets a working shell instead of an error at line 1 |
 | `zsh/paths.zsh` | `PATH` and tool env; sources `zsh/py-venvs.sh` |
 | `zsh/py-venvs.sh` | python venv helpers, auto-activation |
 | `zsh/aliases.zsh` | aliases and one-liners |
 | `zsh/functions.zsh` | `cursor`, `azlogin`, `tfcleanup`, `gac`, `gacp` |
 
-Because `zsh/` is sourced in place, editing those is live — only `.zshrc` itself is a copy, and
-it rarely changes. Nothing syncs it automatically; see the backlog.
+Because those are sourced in place, editing them is live — only `.zshrc` itself is a copy, and it
+rarely changes. Nothing syncs it automatically; see the backlog.
+
+They're listed one by one rather than globbed: oh-my-zsh owns the prompt and has to run first, and
+`zsh/*.zsh` would sort `aliases.zsh` ahead of it.
 
 ## Conventions
 
@@ -101,11 +106,11 @@ asked*, so the guard asks — which is what gets the file moved.
 ### The secret gate
 
 Shell config is exactly where a token ends up when I'm in a hurry, and `claude/sync.sh` commits
-on its own from a `Stop` hook — no prompt, no human. So `githooks/pre-commit` refuses any commit
+on its own from a `Stop` hook — no prompt, no human. So `.githooks/pre-commit` refuses any commit
 whose files carry a credential. Install it once per repo:
 
 ```bash
-git config core.hooksPath githooks
+git config core.hooksPath .githooks
 ```
 
 gitleaks in Docker, pinned by digest, ~260ms. Docker so the gate doesn't depend on a venv being
