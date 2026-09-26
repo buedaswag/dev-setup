@@ -291,6 +291,63 @@ class TestAskThenCommit(unittest.TestCase):
         self.assertEqual(repo.commits(), 1)
 
 
+class TestAskToPush(unittest.TestCase):
+    """At `push_at` unpushed commits the agent asks me "push?". It never pushes itself."""
+
+    def upstream_head(self, repo):
+        return git(repo.upstream, "rev-parse", "main")
+
+    def test_below_push_at_does_not_ask(self):
+        repo = Repo(self, batch(commit_at=1, push_at=2))
+        self.assertNotIn("Push?", context(repo.edit()))
+
+    def test_at_push_at_asks_to_push(self):
+        repo = Repo(self, batch(commit_at=1, push_at=2))
+        repo.edit()
+        result = repo.edit()
+        self.assertIn("Push?", context(result))
+        self.assertIn("2 unpushed", context(result))
+
+    def test_it_never_pushes_by_itself(self):
+        repo = Repo(self, batch(commit_at=1, push_at=1))
+        before = self.upstream_head(repo)
+        for _ in range(3):
+            repo.edit()
+        self.assertEqual(self.upstream_head(repo), before)
+
+    def test_commits_by_hand_count_as_unpushed(self):
+        """Asked alongside "commit?" -- unpushed is unpushed, whoever committed."""
+        repo = Repo(self, batch(push_at=2))
+        for n in range(2):
+            (repo.path / f"hand{n}").write_text("x\n")
+            git(repo.path, "add", "-A")
+            git(repo.path, "commit", "-q", "-m", f"by hand {n}")
+        result = repo.edit()
+        self.assertIn("Commit?", context(result))
+        self.assertIn("Push?", context(result))
+
+    def test_pushing_stops_the_question(self):
+        repo = Repo(self, batch(commit_at=1, push_at=1))
+        self.assertIn("Push?", context(repo.edit()))
+        git(repo.path, "push", "-q")
+        # An edit that changed nothing: no new commit, so nothing unpushed.
+        result = repo.hook(str(repo.path / "file.txt"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("Push?", context(result))
+
+    def test_no_upstream_means_no_question(self):
+        repo = Repo(self, batch(commit_at=1, push_at=1))
+        git(repo.path, "branch", "--unset-upstream")
+        self.assertNotIn("Push?", context(repo.edit()))
+
+    def test_failing_check_does_not_ask_to_push(self):
+        repo = Repo(self, batch(check="false", push_at=1))
+        (repo.path / "hand").write_text("x\n")
+        git(repo.path, "add", "-A")
+        git(repo.path, "commit", "-q", "-m", "by hand")
+        self.assertNotIn("Push?", repo.edit().stdout)
+
+
 class TestBadBatchConfig(unittest.TestCase):
     """A malformed `batch` key is a broken rules file, and the command guard blocks on those."""
 

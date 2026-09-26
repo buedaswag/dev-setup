@@ -98,6 +98,22 @@ def commit_everything(project):
     return True, message
 
 
+def unpushed(project):
+    """Commits on HEAD that its upstream lacks; 0 when there is no upstream."""
+    status, count = git(project, "rev-list", "--count", "@{upstream}..HEAD")
+    return int(count) if status == 0 and count.isdigit() else 0
+
+
+def push_question(project, push_at):
+    ahead = unpushed(project)
+    if ahead < push_at:
+        return ""
+    return (
+        f' There are {ahead} unpushed commits. Also ask the user: "Push?" -- and push '
+        f"only on yes. Never push without asking."
+    )
+
+
 def tell_agent(message):
     """Context for the agent's next step; the change itself has already happened."""
     json.dump(
@@ -151,21 +167,23 @@ def main():
     if changes is None:
         return
     if changes < commit_at:
-        tell_agent(
+        message = (
             f"Change {changes} of {commit_at} since the last commit; the check passes. "
             f'Ask the user: "Commit?" -- one word, nothing else. On yes, commit what is '
             f"there. On no, carry on; change {commit_at} is committed automatically."
         )
-        return
+    else:
+        committed, detail = commit_everything(project)
+        if not committed and detail:
+            block(
+                f"Change {changes} was due to be committed, and the commit was rejected. "
+                f"Fix what it reports; the next change tries again.\n\n{detail}"
+            )
+        message = f"Committed automatically at change {changes}: {detail}" if committed else ""
 
-    committed, detail = commit_everything(project)
-    if committed:
-        tell_agent(f"Committed automatically at change {changes}: {detail}")
-    elif detail:
-        block(
-            f"Change {changes} was due to be committed, and the commit was rejected. "
-            f"Fix what it reports; the next change tries again.\n\n{detail}"
-        )
+    message = (message + push_question(project, rules.batch["push_at"])).strip()
+    if message:
+        tell_agent(message)
 
 
 if __name__ == "__main__":
