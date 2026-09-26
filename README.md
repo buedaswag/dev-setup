@@ -137,8 +137,9 @@ Known and deliberately not done yet. Each one gets picked up the next time I'm i
   `~/.claude`, so this needs its `PATHS` generalised to `src:dest` pairs. Deliberately second: an
   auto-committer pointed at `.zshrc` is what made the secret gate a prerequisite, and the gate
   should have some mileage on it before anything commits that file unattended.
-- **`.zshrc` still mixes concerns** — aliases, PATH exports, azure and terraform helpers in one
-  file. oh-my-zsh is split out; the rest could follow the same shape.
+- **`py-venvs.sh` is still at the root**, while every other shell file is in `zsh/`. Left alone
+  because the path is in my live `~/.zshrc` and in this README, so moving it is a rename plus two
+  edits, done when I'm next in that file.
 - **Let one repo reuse another's guard rules** — an `extends` key in `guard-rules.json` resolved
   before `Rules.__init__`. Today every repo keeps its own copy, and copy-paste is fine until
   there are enough of them to drift.
