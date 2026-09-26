@@ -86,3 +86,7 @@ Known and deliberately not done yet. Each one gets picked up the next time I'm i
   mirroring deliberately reverses, and it's ungated.
 - **`ASK_USER` is tested for wording, not for being answerable.** The tests pin length, jargon and
   a closing question; nothing catches a question that's short, clean and still confusing.
+- **Package the pipeline diagram.** Make it a `pyproject.toml` package with a `pipeline-diagram`
+  entry point that depends on PyYAML. It gets installed at a pinned version in each repo's CI,
+  replacing the copied `scripts/pipeline_*.py`. Do it when a third repo copies the files, or the
+  first time two copies drift. Until then, deploying means `cp`.
