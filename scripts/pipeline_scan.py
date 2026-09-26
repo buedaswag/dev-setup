@@ -144,7 +144,7 @@ def scan(root: Path | str) -> list[Stage]:
 
 
 def _agent(root: Path) -> list[Stage]:
-    """Stage zero: the command guard, if this project supplies rules.
+    """Stage zero: the guards this project's rules file turns on.
 
     Only the rules file is read. The engine (~/ws/dev-setup) and its hook
     registration (~/.claude/settings.json) sit outside the repo and differ per
@@ -162,16 +162,31 @@ def _agent(root: Path) -> list[Stage]:
     if rules_path is None:
         return []
 
-    # The file is referenced, not parsed. What it denies and rewrites is the
+    # Only the top-level keys are read, because they decide which guards run: a
+    # `_comment` stub gives the command guard nothing to match, and `batch` is
+    # what turns the batch guard on. What the rules deny and rewrite is the
     # guard's business and is already written out in the README; the diagram's
     # job is to say a gate exists here and point at where it is declared.
-    return [
-        Stage(
-            name="command guard",
-            group=Group.AGENT,
-            source=str(rules_path.relative_to(root)),
+    rules = json.loads(rules_path.read_text())
+    source = str(rules_path.relative_to(root))
+    stages = []
+    if "deny" in rules or "rewrite" in rules:
+        stages.append(Stage(name="command guard", group=Group.AGENT, source=source))
+    batch = rules.get("batch")
+    if batch:
+        # The batch guard runs `check` after every edit; a failure stops the
+        # auto-commit, so it is the one step and it blocks.
+        stages.append(
+            Stage(
+                name="batch guard",
+                group=Group.AGENT,
+                source=source,
+                steps=[Step(command=batch["check"], blocks=True)]
+                if batch.get("check")
+                else [],
+            )
         )
-    ]
+    return stages
 
 
 def _hooks_dir(root: Path) -> Path:

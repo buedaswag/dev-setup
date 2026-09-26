@@ -288,6 +288,35 @@ class TestAgentStage(PipelineScanTestCase):
         """
         self.assertNotIn("command guard", self.names())
 
+    def test_a_stub_with_a_batch_key_is_a_batch_guard_not_a_command_guard(self):
+        """The rules file's keys decide which guards run, not its existence.
+
+        A `_comment` stub means the command guard has nothing to match, so
+        drawing it would show a gate that isn't there. The `batch` key is what
+        turns the batch guard on, and its `check` blocks the auto-commit.
+        """
+        write(self.root / ".claude" / "guard-rules.json", """
+            {
+              "_comment": "No command rules for this project.",
+              "batch": {"check": "python3 -m unittest discover tests/", "commit_at": 3}
+            }
+        """)
+        self.assertNotIn("command guard", self.names())
+        guard = self.stage("batch guard")
+        self.assertEqual(guard.group, Group.AGENT)
+        self.assertEqual(guard.source, ".claude/guard-rules.json")
+        self.assertEqual(
+            [(s.command, s.blocks) for s in guard.steps],
+            [("python3 -m unittest discover tests/", True)],
+        )
+
+    def test_a_deny_key_alone_is_a_command_guard(self):
+        write(self.root / "guard-rules.json", """
+            {"deny": {"pattern": "rm -rf", "reason": "..."}}
+        """)
+        self.assertIn("command guard", self.names())
+        self.assertNotIn("batch guard", self.names())
+
 
 if __name__ == "__main__":
     unittest.main()
