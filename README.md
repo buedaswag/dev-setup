@@ -36,7 +36,16 @@ A rule in prose is a suggestion: an agent reads "everything runs in Docker" and 
 Bash command statically, before the prompt appears, and rewrites it to the documented command
 or denies it with a reason. No prompt, no LLM in the loop.
 
-The engine is shared; the rules aren't. Wire up a project with a `guard-rules.json` at its root:
+The hook is registered once, globally, in `~/.claude/settings.json`, so it runs in every project:
+
+```
+python3 "$HOME/ws/dev-setup/claude/guards/command_guard.py" || exit 2
+```
+
+`|| exit 2` is the fail-closed part: 2 is the only exit code Claude Code treats as blocking, and
+an unexpected crash exits 1. If this repo isn't cloned, Python exits 2 with the missing path.
+
+The engine is shared; the opinions aren't. A project supplies a `guard-rules.json` at its root:
 
 ```json
 {
@@ -48,17 +57,20 @@ The engine is shared; the rules aren't. Wire up a project with a `guard-rules.js
 }
 ```
 
-and a `PreToolUse` hook on `Bash` in its `.claude/settings.json`:
-
-```
-python3 "$HOME/ws/dev-setup/claude/guards/command_guard.py" 2>/dev/null || true
-```
-
 Patterns match in command position only, and heredocs, quoted strings and comments are masked
-first — writing *about* `npm install` isn't running it. Compound commands get only the
-offending segment rewritten, but a deny match anywhere denies the whole command. `ready_wait`
-is appended when a step follows, so it can't race a detached server. No rules file, or a bad
-one, and the guard exits clean — a broken guard must never block the agent.
+first — writing *about* `npm install` isn't running it. Compound commands get only the offending
+segment rewritten, but a deny match anywhere denies the whole command. `ready_wait` is appended
+when a step follows, so it can't race a detached server.
+
+Because the hook is global, a project with no rules file has never been asked rather than opted
+out — so the guard asks, once:
+
+| Project state | Guard does |
+| --- | --- |
+| No `guard-rules.json` | Blocks once and tells the agent to ask whether to create rules. Answer no and it writes `{"_comment": "..."}`, which never asks again. |
+| `{}` or a comment-only stub | Nothing. Every command runs. |
+| Real rules | Enforces them. |
+| Unusable rules | Blocks until fixed — opted in and broken is the one case that must never fail open. |
 
 ```bash
 python3 -m unittest discover tests/

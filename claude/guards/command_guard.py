@@ -54,29 +54,45 @@ SEQUENTIAL = {"&&", "||", ";", "\n"}
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 
 
+class NoRules(Exception):
+    """No guard-rules.json at all -- this project has never been asked."""
+
+
+class BadRules(Exception):
+    """There is a rules file and it cannot be used. Never fail open on this."""
+
+
 class Rules:
     """A project's guard-rules.json, validated enough to fail loudly at load.
 
-    Fields:
-      rewrite_to    the documented command a matched invocation becomes
-      ready_wait    optional; appended after `rewrite_to` when another segment
-                    follows it sequentially, so the next step cannot race a
-                    server that has been started detached and is not up yet
+    Fields, all optional -- `{}` is a valid, inert ruleset:
+      rewrite_to    the documented command a matched invocation becomes.
+                    Required only when there is a `rewrite` rule to use it.
+      ready_wait    appended after `rewrite_to` when another segment follows it
+                    sequentially, so the next step cannot race a server that has
+                    been started detached and is not up yet
       skip_if       substrings that mean "this segment is already correct"
       deny/rewrite  {pattern, reason}; `{rewrite_to}` in a reason is filled in
     """
 
     def __init__(self, data):
-        self.rewrite_to = data["rewrite_to"]
+        if not isinstance(data, dict):
+            raise BadRules("the top level must be a JSON object")
+        self.rewrite_to = data.get("rewrite_to", "")
         self.ready_wait = data.get("ready_wait", "")
         self.skip_if = data.get("skip_if", [])
+        if data.get("rewrite") and not self.rewrite_to:
+            raise BadRules("a `rewrite` rule needs `rewrite_to` -- nothing to rewrite into")
 
         def compile_rule(key):
             rule = data.get(key)
             if not rule:
                 return None, ""
-            pattern = re.compile(CMD_POS + rule["pattern"])
-            reason = rule["reason"].format(rewrite_to=self.rewrite_to)
+            try:
+                pattern = re.compile(CMD_POS + rule["pattern"])
+                reason = rule["reason"].format(rewrite_to=self.rewrite_to)
+            except (KeyError, TypeError, IndexError, re.error) as error:
+                raise BadRules(f"`{key}` rule is unusable: {error}") from error
             return pattern, reason
 
         self.deny_pattern, self.deny_reason = compile_rule("deny")
@@ -90,18 +106,29 @@ class Rules:
 
 
 def load_rules(path=None):
-    """Load the project's rules, or None if there are none to apply."""
+    """Load the project's rules.
+
+    Raises NoRules when there is no file (never been asked) and BadRules when
+    there is one that cannot be used (asked, answered, and now broken). Returns
+    None only when there is no project to guard at all.
+    """
     if path is None:
         project_dir = os.environ.get("CLAUDE_PROJECT_DIR")
         if not project_dir:
+            # Not running under Claude Code, so there is no project in play.
             return None
         path = os.path.join(project_dir, "guard-rules.json")
+
+    if not os.path.exists(path):
+        raise NoRules(path)
+
     try:
         with open(path) as handle:
-            return Rules(json.load(handle))
-    except (OSError, json.JSONDecodeError, KeyError, TypeError, re.error):
-        # A broken guard must never block the agent.
-        return None
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError) as error:
+        raise BadRules(f"cannot be read as JSON: {error}") from error
+
+    return Rules(data)
 
 
 def mask_data(command):
@@ -204,8 +231,42 @@ def decide(command, rules):
     return "allow", rules.rewrite_reason, result
 
 
+STUB = '{"_comment": "No guard rules for this project. Hook: ~/.claude/settings.json"}'
+
+ASK = """No guard-rules.json in this project, so the command guard has nothing to enforce.
+
+Ask the user whether they want guard rules here. Guard rules let a repo force agents onto its
+documented commands instead of trusting them to read the README -- the landing-page project
+rewrites any `npm`/`npx`/`astro` call to `docker compose up --build -d` and denies installs
+outright, with no permission prompt and no LLM in the loop.
+
+If they want them, write {path} with `rewrite_to` and a `deny`/`rewrite` pattern pair.
+If they don't, write exactly this to {path} so the question is never asked again:
+
+    {stub}
+
+Do not work around this by other means."""
+
+
+def block(message):
+    """Exit 2: the only exit code Claude Code treats as blocking."""
+    print(message, file=sys.stderr)
+    sys.exit(2)
+
+
 def main():
-    rules = load_rules(sys.argv[1] if len(sys.argv) > 1 else None)
+    try:
+        rules = load_rules(sys.argv[1] if len(sys.argv) > 1 else None)
+    except NoRules as error:
+        block(ASK.format(path=error, stub=STUB))
+    except BadRules as error:
+        path = sys.argv[1] if len(sys.argv) > 1 else "guard-rules.json"
+        block(
+            f"This project's guard-rules.json ({path}) is opted in but unusable: {error}\n"
+            "Fix the rules file. Do not work around this, and do not delete the file to "
+            "silence it -- an empty object is how a project opts out."
+        )
+
     if rules is None:
         return
 

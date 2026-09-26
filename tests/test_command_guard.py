@@ -10,8 +10,10 @@ tests and that project's integration test at once.
 """
 
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -21,7 +23,7 @@ RULES = ROOT / "tests" / "fixtures" / "docker-node-rules.json"
 DOCKER_UP = "docker compose up --build -d"
 
 
-def run_guard(command, tool_name="Bash", rules=RULES):
+def run_guard(command, tool_name="Bash", rules=RULES, project_dir=None):
     payload = json.dumps(
         {
             "hook_event_name": "PreToolUse",
@@ -32,7 +34,14 @@ def run_guard(command, tool_name="Bash", rules=RULES):
     argv = [sys.executable, str(GUARD)]
     if rules is not None:
         argv.append(str(rules))
-    return subprocess.run(argv, input=payload, capture_output=True, text=True)
+    # These tests run under Claude Code, which sets CLAUDE_PROJECT_DIR. Leaving it
+    # set would let the real environment decide what the fallback path resolves to.
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PROJECT_DIR"}
+    if project_dir is not None:
+        env["CLAUDE_PROJECT_DIR"] = str(project_dir)
+    return subprocess.run(
+        argv, input=payload, capture_output=True, text=True, env=env
+    )
 
 
 def decide(command, tool_name="Bash", rules=RULES):
@@ -152,28 +161,76 @@ class TestMalformedInput(unittest.TestCase):
 
 
 class TestRulesLoading(unittest.TestCase):
-    """The engine is shared; a project without rules must be unaffected by it."""
+    """The hook is global, so the engine runs in every project.
 
-    def test_missing_rules_file_exits_clean(self):
-        result = run_guard("npm install", rules=ROOT / "tests" / "fixtures" / "nope.json")
+    No file means the project has never been asked. An empty file means it was
+    asked and said no. The difference is the whole point: the guard asks once.
+    """
+
+    def rules_file(self, content):
+        """A guard-rules.json in a throwaway project directory."""
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, ignore_errors=True))
+        path = Path(tmp) / "guard-rules.json"
+        path.write_text(content)
+        return path
+
+    def test_missing_rules_file_asks_to_create_them(self):
+        """Blocks once so the agent can put the question to the user."""
+        missing = Path(tempfile.mkdtemp()) / "guard-rules.json"
+        result = run_guard("npm run build", rules=missing)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("guard-rules.json", result.stderr)
+        self.assertIn("ask", result.stderr.lower())
+
+    def test_empty_rules_file_runs_everything(self):
+        """An empty file is an answer: this project doesn't want guarding."""
+        result = run_guard("npm install", rules=self.rules_file("{}"))
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), "")
 
-    def test_no_rules_argument_and_no_project_dir_exits_clean(self):
-        """Falls back to $CLAUDE_PROJECT_DIR; unset means nothing to enforce."""
+    def test_comment_only_stub_runs_everything(self):
+        """The stub the agent writes when the answer is no."""
+        stub = self.rules_file('{"_comment": "No guard rules. Hook: ~/.claude/settings.json"}')
+        result = run_guard("npm install", rules=stub)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "")
+
+    def test_rules_without_a_rewrite_rule_need_no_rewrite_to(self):
+        """Deny-only rules are legitimate -- nothing is being rewritten."""
+        deny_only = self.rules_file(
+            '{"deny": {"pattern": "npm\\\\s+install\\\\b", "reason": "no"}}'
+        )
+        result = run_guard("npm install", rules=deny_only)
+        self.assertEqual(result.returncode, 0)
+        decision = json.loads(result.stdout)["hookSpecificOutput"]
+        self.assertEqual(decision["permissionDecision"], "deny")
+
+    def test_malformed_rules_file_blocks(self):
+        """Opted in with a broken config -- silently running unguarded is the bug."""
+        bad = self.rules_file("{ not json")
+        result = run_guard("npm install", rules=bad)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("guard-rules.json", result.stderr)
+
+    def test_rewrite_rule_without_rewrite_to_blocks(self):
+        """A rewrite rule with nothing to rewrite into cannot be honoured."""
+        bad = self.rules_file('{"rewrite": {"pattern": "npm\\\\b", "reason": "x"}}')
+        result = run_guard("npm run build", rules=bad)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("rewrite_to", result.stderr)
+
+    def test_no_project_dir_exits_clean(self):
+        """Not running under Claude Code at all -- there is no project to guard."""
         result = run_guard("npm install", rules=None)
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout.strip(), "")
 
-    def test_malformed_rules_file_exits_clean(self):
-        bad = ROOT / "tests" / "fixtures" / "malformed-rules.json"
-        bad.write_text("{ not json")
-        try:
-            result = run_guard("npm install", rules=bad)
-            self.assertEqual(result.returncode, 0)
-            self.assertEqual(result.stdout.strip(), "")
-        finally:
-            bad.unlink()
+    def test_project_dir_is_used_to_find_the_rules(self):
+        stub = self.rules_file("{}")
+        result = run_guard("npm install", rules=None, project_dir=stub.parent)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "")
 
 
 class TestTextIsNotCode(unittest.TestCase):
