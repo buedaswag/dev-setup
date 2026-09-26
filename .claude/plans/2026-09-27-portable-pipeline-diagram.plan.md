@@ -1,79 +1,82 @@
-# Bring the pipeline diagram here, and make it portable
+# Show this repo's pipeline as a generated diagram in the README
 
 ## Problem
 
-`landing-page` generates its pipeline diagram from the pipeline itself
-(`scripts/pipeline_scan.py` → `scripts/pipeline_diagram.py`, redrawn by `.githooks/post-commit`,
-drift-checked by a test). This repo has the same kind of pipeline — guards, a blocking
-pre-commit, CI — and describes it by hand in the README, which is the drift that code was
-written to kill.
+`landing-page`'s README shows a diagram of its pipeline, generated from the hooks, workflows and
+guard rules and redrawn by a post-commit hook whenever it goes stale. This repo's README has no
+such diagram. Its pipeline is described in hand-written prose, which is the drift that generator
+was written to kill.
 
-The code can't just be copied over. It only works for `landing-page`:
+Copying the code over as-is doesn't work:
 
-- **Paths come from `__file__`.** `PROJECT_ROOT`, `README`, `docs/pipeline.*` are module
-  constants, and `pipeline_diagram` imports `scripts.pipeline_scan`. Put it anywhere else and it breaks.
-- **Stage 0 would lie here.** Finding a rules file puts "command guard" on the map. This repo's rules
-  file is the `_comment` stub (no command rules) plus a `batch` key, so the diagram would show
-  a guard that isn't there and leave out the batch guard, which is.
-- **This repo's hooks are unannotated.** `.githooks/pre-commit` has no `# pipeline:` line, so
+- **Stage 0 would lie.** Any rules file puts "command guard" on the map. This repo's
+  `.claude/guard-rules.json` is the `_comment` stub (no command rules) plus a `batch` key, so the
+  diagram would show a guard that doesn't run and leave out the batch guard, which does.
+- **This repo's hooks are unannotated.** `.githooks/pre-commit` has no `# pipeline:` line, and
   the scan raises `UnannotatedHook`, as it's meant to.
-- **This repo is stdlib-only.** The scan needs PyYAML; CI runs `unittest` with nothing installed.
+- **Three diagram tests are specific to `landing-page`.** `test_non_blocking_stages_are_marked`,
+  `test_the_deploy_reaches_the_live_site` and `test_needs_are_drawn_within_their_own_workflow`
+  assume a deploy step, a job that reports without blocking, and `landing-page`'s job names.
+- **The scan needs PyYAML.** This repo is stdlib-only, and CI installs nothing.
 
 ## Approach
 
-**This repo becomes the canonical home, and other repos copy from it verbatim.** Same files,
-same paths (`scripts/pipeline_scan.py`, `scripts/pipeline_diagram.py`), so deploying means running
-`cp ~/ws/dev-setup/scripts/pipeline_*.py scripts/` plus four one-time steps in the repo: markers
-in the README, a `# pipeline:` line per hook command, the post-commit hook and the drift test.
-The copies have no per-repo edits, so a diff against this repo shows any drift.
+Copy from `~/ws/personal/landing-page`. `landing-page` is **not** changed.
 
-Why not run it from `~/ws/dev-setup` the way the guards run? The drift check runs in each repo's
-CI, and CI has no dev-setup clone. The guards get away with it because they only run on my
-machine. The honest fix for "same code in many repos" is a package, and that goes on the backlog, not in
-this plan.
+| From `landing-page` | To here | Note |
+| --- | --- | --- |
+| `scripts/pipeline_scan.py`, `scripts/pipeline_diagram.py`, `scripts/__init__.py` | same paths | new `scripts/` dir |
+| `tests/test_pipeline_scan.py` | same | fixture-based, repo-agnostic |
+| `tests/test_pipeline_diagram.py` | same, minus the 3 tests above | the rest check this repo |
+| `.githooks/post-commit` | same | redraws the diagram after a commit |
+| — | not copied | `tests/test_pipeline_gates.py`, which tests `landing-page`'s own hooks |
 
-To make the copies verbatim, the code needs to change:
+Changes to the copied code:
 
-- **Root from the repo, not the file.** Use `git rev-parse --show-toplevel` (or `--root`). Output paths and
-  markers stay as today's defaults. Add no config file until a repo needs different ones.
-- **Sibling import.** `pipeline_diagram` imports `pipeline_scan` from its own directory.
-- **Stage 0 reads the rules file's keys.** Draw a command-guard stage only if there are `deny`/`rewrite` rules,
-  and a batch-guard stage only if there's a `batch` key. `batch.check` is its one blocking step (it
-  gates the auto-commit). Still only the tracked file, never `~/.claude/settings.json`.
-- **Neutral header copy.** Drop "to the live site"; the deploy node is already conditional.
-- **Pin the mermaid-cli image**, as the gitleaks image is pinned.
+- **Stage 0 reads the rules file's keys.** Draw a command-guard stage only if there are `deny`/`rewrite`
+  rules, and a batch-guard stage only if there's a `batch` key. `batch.check` is its one step,
+  and it blocks the auto-commit.
+- **Neutral header.** "Everything from a command an agent proposes to the live site" becomes
+  "…to the last gate". This repo has no deploy, and the live node is already conditional.
+- **Pin the mermaid-cli image** by digest, as `.githooks/pre-commit` pins gitleaks.
+
+The expected result is Agent (batch guard) → git commit (`pre-commit` blocks, `post-commit`
+reports) → CI on push (`security.yml`: `gitleaks`, `tests`). There's no live node, because
+nothing deploys from here.
 
 ## Sequence
 
-Tests first for each step, and one commit per step.
+Tests first for each step, and one commit per step. Run the tests with `python3 -m unittest discover tests/`.
 
-1. **Faithful copy.** Copy both modules and `test_pipeline_scan.py`/`test_pipeline_diagram.py`
-   into this repo and add PyYAML (Open 1). The scan tests pass as-is. That's expected: they prove the copy is faithful.
-2. **Root-independent.** New test: run `main()` against a fixture repo in a tmp dir and expect
-   `docs/pipeline.md` there. It fails because the output lands next to the script. Fix it.
-3. **Stage 0 tells the truth.** New tests: a stub-plus-`batch` rules file gives a batch-guard stage
-   and no command-guard stage, and a `deny` rule gives a command-guard stage. The first fails today.
-4. **Annotate and generate here.** The drift test fails with `UnannotatedHook`. Add
-   `# pipeline: blocks` above the gitleaks run (`test_secret_scan.py` already proves it
-   blocks). Add README markers, generate `docs/`, add `post-commit`, and replace the hand-written
-   Enforcement prose with a pointer to the generated diagram wherever the two overlap.
-   **Done when:** the README here shows this repo's pipeline diagram.
+1. **Copy the scan.** Add `requirements.txt` with `pyyaml`, add a `pip install -r requirements.txt`
+   step to the `tests` job in `.github/workflows/security.yml`, and install it locally. Copy
+   `scripts/` and `test_pipeline_scan.py`, which pass unchanged.
+2. **Stage 0 tells the truth.** Add two tests to `test_pipeline_scan.py`: stub plus `batch` gives
+   a `batch guard` stage and no `command guard`, and a `deny` key gives `command guard`. Watch the
+   first one fail, then fix `_agent()`.
+3. **Make pre-commit legible.** Move the gitleaks body out of `.githooks/pre-commit` into
+   `scripts/secret_scan.sh`. The hook becomes `# pipeline: blocks` plus
+   `scripts/secret_scan.sh "$@" || exit 1`. `tests/test_secret_scan.py` must pass unchanged, and it
+   is the proof that the annotation is true.
+4. **Generate the diagram.** Copy `test_pipeline_diagram.py` minus the 3 tests, and watch the drift
+   test fail. Add a `## Pipeline` section to `README.md` between "Secret leak gate" and "Backlog",
+   with `<!-- pipeline:start -->` / `<!-- pipeline:end -->`. Copy `post-commit` and change nothing
+   in it. Run `python3 scripts/pipeline_diagram.py`, which writes `docs/pipeline.{md,mmd,svg}` and
+   fills the markers. Leave the Enforcement prose alone: it explains the rules, and the diagram
+   shows where they run.
+   **Done when:** the README on GitHub shows this repo's pipeline diagram and the suite is green.
 5. **Backlog.** Add the item below to the README's backlog.
 
 ## Backlog item (README)
 
 - **Package the pipeline diagram.** Make it a `pyproject.toml` package with a `pipeline-diagram`
-  entry point that depends on PyYAML. It gets installed at a pinned version in each repo's CI and
-  dev image, and the scripts/ copies go away. Do it when a third repo copies the files, or the
-  first time two copies drift, whichever comes first. Until then, `cp` plus a `diff` is the deployment.
+  entry point that depends on PyYAML. It gets installed at a pinned version in each repo's CI,
+  replacing the copied `scripts/pipeline_*.py`. Do it when a third repo copies the files, or the
+  first time two copies drift. Until then, deploying means `cp`.
 
-## Open — mine to decide
+## Open — mine to decide (defaults let an agent start)
 
-1. **PyYAML here:** a `requirements.txt` plus `pip install -r` in `security.yml` (recommended),
-   or give up stdlib-only a different way. This repo has no dependencies today.
-2. **Should the map say the guards are live before commit?** `~/.claude/settings.json` runs
-   them from this working tree, so a saved edit is live before any gate runs. That's true, but it's
-   per-machine, which is the reason the scan doesn't read settings. Leave it as README prose, or
-   draw it anyway?
-
-Out of scope: changing `landing-page`. It keeps its own copy for now.
+1. **PyYAML as this repo's first dependency.** Default: `requirements.txt`, as above.
+2. **Should the diagram say the guards are live before commit?** `~/.claude/settings.json` runs
+   them from this working tree. Default: no. That file is per-machine, and the scan deliberately
+   reads only tracked files.
