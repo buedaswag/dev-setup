@@ -16,17 +16,24 @@ Python venvs — add to `~/.zshrc`:
 source ~/ws/dev-setup/py-venvs.sh
 ```
 
-`.zshrc` is the mirror of `~/.zshrc`. Home is canonical and the copy is by hand, both ways:
+Shell config. This repo always lives at `~/ws/dev-setup`, so a new machine needs one copy:
 
 ```bash
-cp ~/.zshrc ~/ws/dev-setup/.zshrc     # save
-cp ~/ws/dev-setup/.zshrc ~/.zshrc     # restore, on a new machine
+cp ~/ws/dev-setup/.zshrc ~/.zshrc
 ```
 
-`oh-my-zsh.zsh` holds the framework boilerplate and does nothing unless omz is installed — so
-that restore works on a fresh laptop instead of failing at line 1 and leaving no usable shell.
+That's the whole install — no script, because `.zshrc` is a four-line table of contents and
+everything with a body lives in `zsh/` and is sourced from there:
 
-Nothing syncs these automatically; see the backlog for why that's deliberate.
+| File | Holds |
+| --- | --- |
+| `zsh/oh-my-zsh.zsh` | framework + prompt. Returns early unless omz is installed, so a fresh laptop gets a working shell instead of an error at line 1 |
+| `zsh/paths.zsh` | `PATH`, tool env, `py-venvs.sh` |
+| `zsh/aliases.zsh` | aliases and one-liners |
+| `zsh/functions.zsh` | `cursor`, `azlogin`, `tfcleanup`, `gac`, `gacp` |
+
+Because `zsh/` is sourced in place, editing those is live — only `.zshrc` itself is a copy, and
+it rarely changes. Nothing syncs it automatically; see the backlog.
 
 ## Conventions
 
@@ -57,7 +64,14 @@ python3 "$HOME/ws/dev-setup/claude/guards/command_guard.py" || exit 2
 `|| exit 2` is the fail-closed part: 2 is the only exit code Claude Code treats as blocking, and
 an unexpected crash exits 1. If this repo isn't cloned, Python exits 2 with the missing path.
 
-The engine is shared; the opinions aren't. A project supplies a `guard-rules.json` at its root:
+Two directories, one letter apart, and they mean different things:
+
+| | |
+| --- | --- |
+| `claude/` | the mirror of my **global** `~/.claude` config — `settings.json`, `CLAUDE.md`, the guard engine. Shared by every project. |
+| `.claude/` | this repo's **own** project-local Claude config — `plans/`, and its `guard-rules.json`. Like any other project's. |
+
+The engine is shared; the opinions aren't. A project supplies `.claude/guard-rules.json`:
 
 ```json
 {
@@ -77,9 +91,13 @@ when a step follows, so it can't race a detached server.
 Because the hook is global, a project with no rules file has never been asked rather than opted
 out — so the guard asks, once:
 
+Rules are read from `.claude/guard-rules.json`, falling back to `guard-rules.json` at the project
+root so projects that already keep it there keep working. A missing file reads as *never asked*,
+so dropping the fallback would quietly unguard them rather than failing loudly.
+
 | Project state | Guard does |
 | --- | --- |
-| No `guard-rules.json` | Blocks once and tells the agent to ask whether to create rules. Answer no and it writes `{"_comment": "..."}`, which never asks again. |
+| No rules file | Blocks once and tells the agent to ask whether to create rules. Answer no and it writes `{"_comment": "..."}`, which never asks again. |
 | `{}` or a comment-only stub | Nothing. Every command runs. |
 | Real rules | Enforces them. |
 | Unusable rules | Blocks until fixed — opted in and broken is the one case that must never fail open. |

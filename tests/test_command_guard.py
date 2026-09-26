@@ -233,6 +233,81 @@ class TestRulesLoading(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "")
 
 
+class TestWhereTheRulesLive(unittest.TestCase):
+    """`.claude/guard-rules.json` is the home; the project root still works.
+
+    Project-local Claude config belongs under `.claude/`, next to `plans/` and
+    `settings.json`, not loose at the root. But landing-page already has its rules
+    at the root, and moving the lookup without a fallback would silently unguard
+    the one project that actually depends on the guard -- silently, because a
+    missing file reads as "never been asked", so it would just start asking again
+    rather than erroring. So `.claude/` is preferred and the root is still read.
+    """
+
+    def project(self, at_claude=None, at_root=None):
+        """A throwaway project with rules at either location, or both."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(tmp, ignore_errors=True))
+        if at_claude is not None:
+            (tmp / ".claude").mkdir(parents=True, exist_ok=True)
+            (tmp / ".claude" / "guard-rules.json").write_text(at_claude)
+        if at_root is not None:
+            (tmp / "guard-rules.json").write_text(at_root)
+        return tmp
+
+    def test_rules_are_found_under_dot_claude(self):
+        deny_all_npm = '{"deny": {"pattern": "npm\\\\b", "reason": "from .claude"}}'
+        project = self.project(at_claude=deny_all_npm)
+        result = run_guard("npm install", rules=None, project_dir=project)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("from .claude", result.stdout)
+
+    def test_rules_at_the_project_root_still_work(self):
+        """landing-page keeps its copy at the root. Don't unguard it."""
+        deny_all_npm = '{"deny": {"pattern": "npm\\\\b", "reason": "from root"}}'
+        project = self.project(at_root=deny_all_npm)
+        result = run_guard("npm install", rules=None, project_dir=project)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("from root", result.stdout)
+
+    def test_dot_claude_wins_when_both_exist(self):
+        """One answer per project. The new location is the one that counts."""
+        project = self.project(
+            at_claude='{"deny": {"pattern": "npm\\\\b", "reason": "from .claude"}}',
+            at_root='{"deny": {"pattern": "npm\\\\b", "reason": "from root"}}',
+        )
+        result = run_guard("npm install", rules=None, project_dir=project)
+        self.assertIn("from .claude", result.stdout)
+        self.assertNotIn("from root", result.stdout)
+
+    def test_the_question_names_the_project_not_the_dot_claude_folder(self):
+        """"Do you want guard rules in .claude?" is not a question about a project.
+
+        The project name came from the rules file's parent directory, which was the
+        project root until the file moved into `.claude/`. Every project would ask
+        about `.claude`, which is both wrong and identical everywhere -- so the one
+        word that tells me *which* repo is asking would be gone.
+        """
+        project = self.project()
+        result = run_guard("npm run build", rules=None, project_dir=project)
+        self.assertIn(
+            f"guard rules in {project.name}?",
+            result.stderr,
+            "the question must name the project directory, not `.claude`",
+        )
+
+    def test_the_question_points_at_dot_claude(self):
+        """Asked where to write them, the guard must name the new home."""
+        project = self.project()
+        result = run_guard("npm run build", rules=None, project_dir=project)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(
+            os.path.join(".claude", "guard-rules.json"),
+            result.stderr,
+            "the guard asked for rules but pointed at the old root location",
+        )
+
+
 class TestTextIsNotCode(unittest.TestCase):
     """Text being written INTO a file is data, not a command to intercept.
 

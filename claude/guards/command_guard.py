@@ -16,8 +16,9 @@ The rewrite path is the point: no prompt appears, the documented command runs
 instead, and the agent's turn continues. No LLM in the loop.
 
 This file is the engine and is project-agnostic. The rules are not: they load
-from `guard-rules.json` at the project root ($CLAUDE_PROJECT_DIR), or from the
-path given as argv[1]. No rules file, no decision -- the guard exits clean.
+from `.claude/guard-rules.json` under $CLAUDE_PROJECT_DIR -- or the project root,
+for projects that already keep it there -- or from the path given as argv[1]. No
+rules file, no decision -- the guard exits clean.
 
 Three rules keep the rewrite honest, all three learned from a real failure where
 a heredoc writing ASTRO_MIGRATION.md was silently replaced by the Docker command
@@ -52,6 +53,16 @@ SEPARATOR = re.compile(r"&&|\|\||;|\n|\|")
 SEQUENTIAL = {"&&", "||", ";", "\n"}
 
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+
+
+# Where a project's rules live, in order of preference. Project-local Claude config
+# belongs under `.claude/`, with plans and settings, rather than loose at the root.
+#
+# The root stays readable because landing-page already keeps its copy there, and
+# dropping it would unguard that project *silently*: a missing file reads as "never
+# been asked", so the guard would start asking again rather than failing loudly.
+# First entry is the one the guard names when it has to ask.
+RULE_LOCATIONS = (os.path.join(".claude", "guard-rules.json"), "guard-rules.json")
 
 
 class NoRules(Exception):
@@ -117,7 +128,15 @@ def load_rules(path=None):
         if not project_dir:
             # Not running under Claude Code, so there is no project in play.
             return None
-        path = os.path.join(project_dir, "guard-rules.json")
+        for relative in RULE_LOCATIONS:
+            candidate = os.path.join(project_dir, relative)
+            if os.path.exists(candidate):
+                path = candidate
+                break
+        else:
+            # Name the preferred location, so being asked puts the file in the
+            # right place rather than wherever it was historically.
+            raise NoRules(os.path.join(project_dir, RULE_LOCATIONS[0]))
 
     if not os.path.exists(path):
         raise NoRules(path)
@@ -276,7 +295,13 @@ def main():
     except NoRules as error:
         path = str(error)
         # The repo name is what the user calls this project; the path is for me.
-        project = os.path.basename(os.path.dirname(path)) or path
+        # Step over `.claude/` on the way up, or every project asks about ".claude"
+        # -- wrong, and identical everywhere, so the one word saying *which* repo is
+        # asking would be lost.
+        directory = os.path.dirname(path)
+        if os.path.basename(directory) == ".claude":
+            directory = os.path.dirname(directory)
+        project = os.path.basename(directory) or path
         block(
             ASK_USER.format(project=project)
             + "\n\n"
