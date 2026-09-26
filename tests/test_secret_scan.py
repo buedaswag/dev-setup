@@ -18,6 +18,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK = REPO_ROOT / ".githooks" / "pre-commit"
+# The hook calls this; it is where the scanner and its image actually live.
+SCANNER_SCRIPT = REPO_ROOT / "scripts" / "secret_scan.sh"
 
 # A GitHub personal access token by shape: `ghp_` and 36 random alphanumerics.
 # Randomly generated for this test, never issued by anyone, matches no account.
@@ -148,7 +150,7 @@ class TestSecretScanGate(unittest.TestCase):
         `:latest` also re-pulls, which turns a 30ms hook into a network round trip
         at every commit.
         """
-        source = HOOK.read_text()
+        source = SCANNER_SCRIPT.read_text()
         self.assertNotRegex(
             source,
             r"gitleaks:(latest|v?\d)",
@@ -158,12 +160,12 @@ class TestSecretScanGate(unittest.TestCase):
         self.assertRegex(
             source,
             r"gitleaks@sha256:[0-9a-f]{64}",
-            "no digest-pinned gitleaks image found in the hook",
+            "no digest-pinned gitleaks image found in scripts/secret_scan.sh",
         )
 
     def test_hook_does_not_build_anything(self):
         """Pull-and-run only. A hook that builds is a hook I will disable."""
-        source = HOOK.read_text()
+        source = HOOK.read_text() + SCANNER_SCRIPT.read_text()
         for forbidden in ("docker build", "docker compose", "Dockerfile"):
             self.assertNotIn(
                 forbidden,
