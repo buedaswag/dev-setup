@@ -16,15 +16,17 @@ Python venvs — add to `~/.zshrc`:
 source ~/ws/dev-setup/py-venvs.sh
 ```
 
-Shell config is mirrored in `shell/` — `zshrc`, `zprofile`. `~/.zshrc` is the canonical copy and
-the one I edit; these are a snapshot, committed by hand:
+`.zshrc` is the mirror of `~/.zshrc`. Home is canonical and the copy is by hand, both ways:
 
 ```bash
-cp ~/.zshrc shell/zshrc && cp ~/.zprofile shell/zprofile
+cp ~/.zshrc ~/ws/dev-setup/.zshrc     # save
+cp ~/ws/dev-setup/.zshrc ~/.zshrc     # restore, on a new machine
 ```
 
-Unlike `~/.claude`, nothing syncs these automatically — see the backlog for why that's deliberate
-rather than unfinished.
+`oh-my-zsh.zsh` holds the framework boilerplate and does nothing unless omz is installed — so
+that restore works on a fresh laptop instead of failing at line 1 and leaving no usable shell.
+
+Nothing syncs these automatically; see the backlog for why that's deliberate.
 
 ## Conventions
 
@@ -113,10 +115,12 @@ python3 -m unittest discover tests/
 
 Known and deliberately not done yet. Each one gets picked up the next time I'm in that file.
 
-- **Auto-commit `shell/zshrc` on change.** Manual `cp` for now. `claude/sync.sh` only walks paths
-  under `~/.claude`, so this needs its `PATHS` generalised to `src:dest` pairs. Deliberately
-  second: an auto-committer pointed at `.zshrc` is what made the secret gate a prerequisite, and
-  the gate should have some mileage on it before anything commits that file unattended.
+- **Auto-commit `.zshrc` on change.** Manual `cp` for now. `claude/sync.sh` only walks paths under
+  `~/.claude`, so this needs its `PATHS` generalised to `src:dest` pairs. Deliberately second: an
+  auto-committer pointed at `.zshrc` is what made the secret gate a prerequisite, and the gate
+  should have some mileage on it before anything commits that file unattended.
+- **`.zshrc` still mixes concerns** — aliases, PATH exports, azure and terraform helpers in one
+  file. oh-my-zsh is split out; the rest could follow the same shape.
 - **Let one repo reuse another's guard rules** — an `extends` key in `guard-rules.json` resolved
   before `Rules.__init__`. Today every repo keeps its own copy, and copy-paste is fine until
   there are enough of them to drift.
