@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Secret gate. Refuse the commit if the work tree carries a credential.
+#
+# This runs before the commit exists, which is the only place it can do any good.
+# Once a token is committed and pushed, a scan in CI can only tell me to rewrite
+# history -- so the GitHub Action in .github/workflows/security.yml is a backstop
+# for what gets in around this hook, not the gate itself.
+#
+# Two callers make that matter here specifically: I commit by hand all day, and
+# claude/sync.sh commits on its own from a Stop hook, with no prompt and no human
+# in the loop. Both go through pre-commit.
+#
+# Scans the whole work tree, not just staged files: a secret sitting unstaged in
+# the tree is one `git add -A` away from being committed anyway.
+#
+# Scanner is gitleaks in Docker, pinned by digest:
+#   - Docker, so the gate does not depend on an activated venv being on PATH.
+#     py-venvs.sh auto-activates one, and a gate that silently stops gating the
+#     day that changes is worse than no gate.
+#   - the same tool CI runs, so local and CI cannot drift apart.
+#   - by digest, because a floating tag changes the gate under me and re-pulls on
+#     every commit, turning 30ms into a network round trip.
+# Pull and run only. Never build -- a hook that builds is a hook I disable.
+#
+# Install (once per repo):
+#   git config core.hooksPath githooks
+#
+# Bypass, when I have looked at the finding and it is wrong:
+#   git commit --no-verify
+set -uo pipefail
+
+SCANNER="ghcr.io/gitleaks/gitleaks@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055"
+
+# argv[1] is the seam the tests drive. Normal hook invocation passes nothing.
+TARGET="${1:-}"
+if [ -z "$TARGET" ]; then
+  TARGET="$(git rev-parse --show-toplevel)" || {
+    echo "pre-commit: not inside a git work tree" >&2
+    exit 1
+  }
+fi
+
+# Fail closed. No scanner is not a pass -- it is an ungated commit, which is the
+# exact thing this hook exists to prevent.
+if ! command -v docker >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+pre-commit: BLOCKED -- docker not found, so the secret scan could not run.
+
+A commit that cannot be scanned is not waved through. Start Docker, or bypass
+deliberately with `git commit --no-verify` once you have checked the diff yourself.
+EOF
+  exit 1
+fi
+
+# Scan what a commit could actually carry: tracked files plus untracked ones that
+# .gitignore does not exclude. Untracked counts -- `git add -A` is one keystroke.
+#
+# gitleaks has no flag for this. `--no-git` walks the filesystem and ignores
+# .gitignore entirely, which meant scanning __pycache__, and would mean node_modules
+# and .venv in any other repo. Those cannot reach a commit, so a finding there is
+# always a false positive, and a gate that cries wolf is a gate I switch off. So the
+# file list comes from git and gets staged into a scratch tree that gitleaks sees.
+SCAN_ROOT="$TARGET"
+STAGE=""
+cleanup() { [ -n "$STAGE" ] && rm -rf "$STAGE"; }
+trap cleanup EXIT
+
+if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  STAGE="$(mktemp -d)"
+  # NUL-delimited throughout: paths with spaces or newlines are still paths.
+  if ! git -C "$TARGET" ls-files -z --cached --others --exclude-standard \
+      | (cd "$TARGET" && tar -cf - --null -T - 2>/dev/null) \
+      | tar -xf - -C "$STAGE" 2>/dev/null; then
+    echo "pre-commit: BLOCKED -- could not assemble the file list to scan." >&2
+    exit 1
+  fi
+  SCAN_ROOT="$STAGE"
+fi
+
+# --verbose is what prints the file and line of each finding; without it the output
+# is a bare "leaks found: 3", which tells me there is a problem and not where.
+# --redact keeps the value itself out of the terminal and my scrollback.
+output="$(docker run --rm -v "$SCAN_ROOT:/scan:ro" "$SCANNER" \
+  detect --no-git --source /scan --redact --no-banner --verbose 2>&1)"
+status=$?
+
+if [ $status -eq 0 ]; then
+  exit 0
+fi
+
+# gitleaks exits 1 for findings. Anything else is the scanner itself failing --
+# daemon down, image unpullable, no network on a cold cache. Both block, but they
+# are different problems and the message should say which.
+if [ $status -ne 1 ]; then
+  echo "pre-commit: BLOCKED -- the secret scan could not run (exit $status)." >&2
+  echo "$output" >&2
+  exit 1
+fi
+
+# Paths come back rooted at the container mount; show them as I would type them.
+echo "pre-commit: BLOCKED -- possible secrets in the work tree." >&2
+echo "${output//\/scan\//}" >&2
+cat >&2 <<'EOF'
+
+Values above are redacted. Move the secret into the environment or a gitignored
+file, then commit again. If it is a false positive, `git commit --no-verify`.
+EOF
+exit 1

@@ -16,6 +16,16 @@ Python venvs — add to `~/.zshrc`:
 source ~/ws/dev-setup/py-venvs.sh
 ```
 
+Shell config is mirrored in `shell/` — `zshrc`, `zprofile`. `~/.zshrc` is the canonical copy and
+the one I edit; these are a snapshot, committed by hand:
+
+```bash
+cp ~/.zshrc shell/zshrc && cp ~/.zprofile shell/zprofile
+```
+
+Unlike `~/.claude`, nothing syncs these automatically — see the backlog for why that's deliberate
+rather than unfinished.
+
 ## Conventions
 
 `claude/CLAUDE.md` is how I work: one-page plans in `.claude/plans/`, tests before code, small
@@ -72,6 +82,46 @@ out — so the guard asks, once:
 | Real rules | Enforces them. |
 | Unusable rules | Blocks until fixed — opted in and broken is the one case that must never fail open. |
 
+### The secret gate
+
+Shell config is exactly where a token ends up when I'm in a hurry, and `claude/sync.sh` commits
+on its own from a `Stop` hook — no prompt, no human. So `githooks/pre-commit` refuses any commit
+whose files carry a credential. Install it once per repo:
+
+```bash
+git config core.hooksPath githooks
+```
+
+gitleaks in Docker, pinned by digest, ~260ms. Docker so the gate doesn't depend on a venv being
+on `PATH` — `py-venvs.sh` activates one, and a gate that silently stops gating is worse than
+none. Pinned because a floating tag changes the gate under me and re-pulls on every commit. Pull
+and run only; it never builds.
+
+It scans the files a commit could carry — tracked, plus untracked that `.gitignore` doesn't
+exclude — not the whole directory. `--no-git` walks the filesystem and ignores `.gitignore`, so
+scanning the directory means flagging `__pycache__`, `node_modules` and `.venv`, where a finding
+is always a false positive. A gate that cries wolf is a gate I switch off.
+
+No Docker means **blocked**, not passed: a commit that can't be scanned isn't waved through. When
+a finding is wrong, `git commit --no-verify`, having looked at it.
+
 ```bash
 python3 -m unittest discover tests/
 ```
+
+## Refactor Along the Way
+
+Known and deliberately not done yet. Each one gets picked up the next time I'm in that file.
+
+- **Auto-commit `shell/zshrc` on change.** Manual `cp` for now. `claude/sync.sh` only walks paths
+  under `~/.claude`, so this needs its `PATHS` generalised to `src:dest` pairs. Deliberately
+  second: an auto-committer pointed at `.zshrc` is what made the secret gate a prerequisite, and
+  the gate should have some mileage on it before anything commits that file unattended.
+- **Let one repo reuse another's guard rules** — an `extends` key in `guard-rules.json` resolved
+  before `Rules.__init__`. Today every repo keeps its own copy, and copy-paste is fine until
+  there are enough of them to drift.
+- **Retire the `SessionStart` `cp` in `~/.claude/settings.json`.** It copies skills out of
+  `interview-prep` and `CV` into `~/.claude/` on every session start — the direction this repo's
+  mirroring deliberately reverses, and it's ungated.
+- **`ASK_USER` is tested for wording, not for being answerable.** The tests pin length, jargon and
+  a closing question; nothing catches a question that's short, clean and still confusing.

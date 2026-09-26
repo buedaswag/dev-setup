@@ -294,5 +294,112 @@ class TestCompoundCommands(unittest.TestCase):
         self.assertEqual(decide("npm run build")["updatedInput"]["command"], DOCKER_UP)
 
 
+class TestTheQuestionIsAnswerable(unittest.TestCase):
+    """The guard blocks so I can be *asked* something. Test what I'm asked.
+
+    Every other test here covers the engine -- what gets rewritten, what gets
+    denied. None covered the one piece of output a human reads, and it drifted
+    into jargon unnoticed: it opened by announcing that Bash was blocked and
+    went on about permission prompts and which JSON keys to write. What came
+    back out of the agent was a paragraph I could not answer.
+
+    So the ASK text is split in two. `ASK_USER` is the question, worded to be
+    put to me verbatim. `ASK_AGENT` is the mechanical half -- which file, which
+    keys -- which is the agent's problem and which I should never see. These
+    tests hold that line, because prose drifts and a check does not.
+    """
+
+    # Words that mean something to whoever wrote the guard and nothing to the
+    # person being asked. Any of these in the question is the drift coming back.
+    JARGON = [
+        "pretooluse",
+        "stdin",
+        "stdout",
+        "exit code",
+        "json",
+        "guard-rules",
+        "hook",
+        "regex",
+        "llm",
+        "permission prompt",
+        "bash",
+        "block",
+    ]
+
+    @staticmethod
+    def guard_module():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("command_guard", GUARD)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def question(self):
+        return self.guard_module().ASK_USER
+
+    def test_the_question_is_short(self):
+        """If I have to read a paragraph to answer yes or no, it failed."""
+        words = len(self.question().split())
+        self.assertLessEqual(
+            words,
+            45,
+            f"the question is {words} words. Cut it to 45 or fewer -- what it "
+            f"does, one example, yes or no.",
+        )
+
+    def test_the_question_ends_by_asking(self):
+        """A description is not a question. It has to be answerable."""
+        self.assertRegex(
+            self.question().strip().lower(),
+            r"yes or no\?$",
+            "the question must end with 'Yes or no?' -- that is the whole "
+            "point of stopping to ask",
+        )
+
+    def test_the_question_carries_a_concrete_example(self):
+        """`landing-page` rewrites npm to compose. Naming it beats defining it."""
+        question = self.question()
+        self.assertIn("landing-page", question)
+        self.assertIn("npm", question)
+        self.assertIn("docker compose", question)
+
+    def test_the_question_has_no_jargon(self):
+        found = [word for word in self.JARGON if word in self.question().lower()]
+        self.assertEqual(
+            found,
+            [],
+            f"the question uses words only the guard's author understands: "
+            f"{found}. Those belong in ASK_AGENT.",
+        )
+
+    def test_the_mechanics_are_kept_away_from_the_question(self):
+        """The agent still needs the file path and the stub -- separately."""
+        module = self.guard_module()
+        self.assertIn("{path}", module.ASK_AGENT)
+        self.assertIn("{stub}", module.ASK_AGENT)
+        for placeholder in ("{path}", "{stub}"):
+            self.assertNotIn(
+                placeholder,
+                module.ASK_USER,
+                f"{placeholder} is mechanics -- keep it out of the question",
+            )
+
+    def test_blocking_output_still_carries_both_halves(self):
+        """Split for readability, not so half of it goes missing."""
+        missing = Path(tempfile.mkdtemp()) / "guard-rules.json"
+        result = run_guard("npm run build", rules=missing)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("landing-page", result.stderr)
+        self.assertIn("Yes or no?", result.stderr)
+        self.assertIn(str(missing), result.stderr)
+        self.assertIn("_comment", result.stderr)
+
+    def test_the_agent_is_told_not_to_paraphrase(self):
+        """Left free to summarise, an agent rebuilds the paragraph I complained about."""
+        module = self.guard_module()
+        self.assertIn("verbatim", module.ASK_AGENT.lower())
+
+
 if __name__ == "__main__":
     unittest.main()

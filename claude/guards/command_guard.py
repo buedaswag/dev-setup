@@ -233,17 +233,33 @@ def decide(command, rules):
 
 STUB = '{"_comment": "No guard rules for this project. Hook: ~/.claude/settings.json"}'
 
-ASK = """No guard-rules.json in this project, so the command guard has nothing to enforce.
+# Blocking here buys one thing: a question. So the question comes first, and it is
+# written to be read by whoever has to answer it -- not by whoever wrote this file.
+#
+# It used to be one block of text that opened by announcing Bash had been blocked
+# and went on about permission prompts, LLMs in the loop, and which JSON keys to
+# write. An agent relaying that produced a paragraph that could not be answered,
+# which is the opposite of the point. Hence the split, and the tests in
+# tests/test_command_guard.py that keep it from drifting back.
+#
+# ASK_USER is the question, put verbatim. ASK_AGENT is everything mechanical.
+ASK_USER = (
+    "Do you want guard rules in {project}? They force agents onto the commands your "
+    "README documents -- in landing-page, any `npm` call becomes "
+    "`docker compose up --build -d`. Yes or no?"
+)
 
-Ask the user whether they want guard rules here. Guard rules let a repo force agents onto its
-documented commands instead of trusting them to read the README -- the landing-page project
-rewrites any `npm`/`npx`/`astro` call to `docker compose up --build -d` and denies installs
-outright, with no permission prompt and no LLM in the loop.
+ASK_AGENT = """Put that question to the user verbatim. Do not paraphrase it, do not explain
+this guard, and do not report what it stopped -- they asked for a question, not a description
+of the machinery behind it. Ask nothing else first.
 
-If they want them, write {path} with `rewrite_to` and a `deny`/`rewrite` pattern pair.
-If they don't, write exactly this to {path} so the question is never asked again:
+Once they answer, write {path}:
 
-    {stub}
+    yes -> `rewrite_to` plus a `deny`/`rewrite` pattern pair. Copy the shape from
+           ~/ws/dev-setup/tests/fixtures/docker-node-rules.json, the landing-page ruleset.
+    no  -> exactly this, so the question is never asked again:
+
+           {stub}
 
 Do not work around this by other means."""
 
@@ -258,7 +274,14 @@ def main():
     try:
         rules = load_rules(sys.argv[1] if len(sys.argv) > 1 else None)
     except NoRules as error:
-        block(ASK.format(path=error, stub=STUB))
+        path = str(error)
+        # The repo name is what the user calls this project; the path is for me.
+        project = os.path.basename(os.path.dirname(path)) or path
+        block(
+            ASK_USER.format(project=project)
+            + "\n\n"
+            + ASK_AGENT.format(path=path, stub=STUB)
+        )
     except BadRules as error:
         path = sys.argv[1] if len(sys.argv) > 1 else "guard-rules.json"
         block(
