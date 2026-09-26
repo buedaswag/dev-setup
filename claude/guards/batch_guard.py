@@ -74,6 +74,43 @@ def run_check(project, check):
     return result.returncode == 0, (result.stdout + result.stderr).strip()
 
 
+def commit_everything(project):
+    """Stage the whole tree and commit it as `wip: <every file>`.
+
+    Returns (committed, detail): the message on success, git's output on a
+    rejected commit, and (False, "") when there was nothing to commit.
+    """
+    git(project, "add", "-A")
+    # -z: otherwise git quotes and escapes unusual paths, and the message would
+    # name files that do not exist under that spelling.
+    _, names = git(project, "diff", "--cached", "--name-only", "-z")
+    files = sorted(name for name in names.split("\0") if name)
+    if not files:
+        return False, ""
+    message = "wip: " + ", ".join(files)
+    result = subprocess.run(
+        ["git", "-C", project, "commit", "-q", "-m", message],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return False, (result.stdout + result.stderr).strip() or "git commit failed"
+    return True, message
+
+
+def tell_agent(message):
+    """Context for the agent's next step; the change itself has already happened."""
+    json.dump(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
+                "additionalContext": message,
+            }
+        },
+        sys.stdout,
+    )
+
+
 def block(message):
     """Exit 2: for PostToolUse, Claude Code shows stderr to the agent."""
     print(message, file=sys.stderr)
@@ -101,13 +138,33 @@ def main():
     if not path or not inside(path, project):
         return
 
-    count_change(project)
+    changes = count_change(project)
 
     passed, output = run_check(project, rules.batch["check"])
     if not passed:
         block(
             f"The check failed after this change (`{rules.batch['check']}`). Fix it "
             f"before anything else -- nothing gets committed while it fails.\n\n{output}"
+        )
+
+    commit_at = rules.batch["commit_at"]
+    if changes is None:
+        return
+    if changes < commit_at:
+        tell_agent(
+            f"Change {changes} of {commit_at} since the last commit; the check passes. "
+            f'Ask the user: "Commit?" -- one word, nothing else. On yes, commit what is '
+            f"there. On no, carry on; change {commit_at} is committed automatically."
+        )
+        return
+
+    committed, detail = commit_everything(project)
+    if committed:
+        tell_agent(f"Committed automatically at change {changes}: {detail}")
+    elif detail:
+        block(
+            f"Change {changes} was due to be committed, and the commit was rejected. "
+            f"Fix what it reports; the next change tries again.\n\n{detail}"
         )
 
 

@@ -87,6 +87,19 @@ class Repo:
     def head(self):
         return git(self.path, "rev-parse", "HEAD")
 
+    def message(self):
+        return git(self.path, "log", "-1", "--format=%B")
+
+    def commits(self):
+        return int(git(self.path, "rev-list", "--count", "HEAD"))
+
+
+def context(result):
+    """What the hook told the agent, or "" if it said nothing."""
+    if not result.stdout.strip():
+        return ""
+    return json.loads(result.stdout)["hookSpecificOutput"]["additionalContext"]
+
 
 PASSING = {"batch": {"check": "true", "commit_at": 3, "push_at": 5}}
 
@@ -188,6 +201,94 @@ class TestTheCheck(unittest.TestCase):
         repo = Repo(self, batch(check="false"))
         repo.edit()
         self.assertEqual(repo.state()["changes"], 1)
+
+
+class TestAskThenCommit(unittest.TestCase):
+    """Changes 1 and 2: the agent asks me "commit?". Change 3: the hook commits."""
+
+    def test_first_and_second_change_ask_to_commit(self):
+        repo = Repo(self, PASSING)
+        for _ in range(2):
+            result = repo.edit()
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Commit?", context(result))
+        self.assertEqual(repo.commits(), 1, "nothing is committed before change 3")
+
+    def test_the_ask_is_meant_for_the_user(self):
+        result = Repo(self, PASSING).edit()
+        self.assertIn("ask the user", context(result).lower())
+
+    def test_third_change_commits(self):
+        repo = Repo(self, PASSING)
+        repo.edit()
+        repo.edit()
+        result = repo.edit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(repo.commits(), 2)
+        self.assertEqual(git(repo.path, "status", "--porcelain"), "")
+        self.assertIn("Committed", context(result))
+        self.assertNotIn("Commit?", context(result))
+
+    def test_commit_takes_the_whole_tree_and_names_every_file(self):
+        """My work in progress goes in too -- and nothing goes in unmentioned."""
+        repo = Repo(self, PASSING)
+        (repo.path / "mine.md").write_text("by hand\n")
+        (repo.path / "README.md").write_text("changed by hand\n")
+        repo.edit("a.txt")
+        repo.edit("b.txt")
+        repo.edit("a.txt")
+        self.assertEqual(git(repo.path, "status", "--porcelain"), "")
+        self.assertEqual(repo.message(), "wip: README.md, a.txt, b.txt, mine.md")
+
+    def test_commit_at_is_read_from_the_config(self):
+        repo = Repo(self, batch(commit_at=1))
+        repo.edit()
+        self.assertEqual(repo.commits(), 2)
+
+    def test_the_count_starts_over_after_the_hook_commits(self):
+        repo = Repo(self, PASSING)
+        for _ in range(3):
+            repo.edit()
+        result = repo.edit()
+        self.assertEqual(repo.state(), {"head": repo.head(), "changes": 1})
+        self.assertIn("Commit?", context(result))
+
+    def test_failing_check_neither_asks_nor_commits(self):
+        repo = Repo(self, batch(check="false"))
+        for _ in range(3):
+            result = repo.edit()
+            self.assertEqual(result.returncode, 2)
+            self.assertEqual(result.stdout.strip(), "")
+        self.assertEqual(repo.commits(), 1)
+
+    def test_commit_waits_for_the_check_to_pass(self):
+        """Change 3 failed; change 4 passes and commits -- the batch was due."""
+        repo = Repo(self, batch(check="test ! -f broken"))
+        repo.edit()
+        repo.edit()
+        self.assertEqual(repo.edit("broken").returncode, 2)
+        (repo.path / "broken").unlink()
+        result = repo.edit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(repo.commits(), 2)
+
+    def test_nothing_to_commit_is_not_an_error(self):
+        """An edit that left the file as it was leaves a clean tree."""
+        repo = Repo(self, batch(commit_at=1))
+        result = repo.hook(str(repo.path / "README.md"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(repo.commits(), 1)
+
+    def test_a_rejected_commit_goes_back_to_the_agent(self):
+        """The pre-commit hook (the secret gate, here) still gates the auto-commit."""
+        repo = Repo(self, batch(commit_at=1))
+        hooks = repo.path / ".git" / "hooks"
+        (hooks / "pre-commit").write_text("#!/bin/sh\necho 'secret found' >&2\nexit 1\n")
+        (hooks / "pre-commit").chmod(0o755)
+        result = repo.edit()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("secret found", result.stderr)
+        self.assertEqual(repo.commits(), 1)
 
 
 class TestBadBatchConfig(unittest.TestCase):
