@@ -1,1 +1,4 @@
-{"_comment": "No guard rules for this project. Hook: ~/.claude/settings.json"}
+{
+  "_comment": "No command rules for this project. Hooks: ~/.claude/settings.json",
+  "batch": {"check": "python3 -m unittest discover tests/", "commit_at": 3, "push_at": 5}
+}

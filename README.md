@@ -31,6 +31,17 @@ against the project's `.claude/guard-rules.json`:
   "no rules" and never asks again.
 - **Fails closed:** broken rules, or a crashing guard, block.
 
+`claude/guards/batch_guard.py` is a global `PostToolUse` hook on `Edit|Write|NotebookEdit` that
+makes "commit often" a check. It reads the `batch` key of the same rules file —
+`{"check": "<the README's test command>", "commit_at": 3, "push_at": 5}` — and after every
+change inside the project:
+
+- **Check:** runs `check`. A failure goes back to the agent; nothing is asked or committed.
+- **Commit:** below `commit_at` changes since the last commit, the agent asks "Commit?". At
+  `commit_at`, the hook stages the whole tree and commits it as `wip: <every file>`.
+- **Push:** at `push_at` unpushed commits, the agent asks "Push?". The hook never pushes.
+- **No `batch` key:** does nothing. The count lives in `.git/batch-guard.json`, tied to `HEAD`.
+
 ## Secret leak gate
 
 `.githooks/pre-commit` runs gitleaks (Docker, pinned) on every commit and blocks any that carries
