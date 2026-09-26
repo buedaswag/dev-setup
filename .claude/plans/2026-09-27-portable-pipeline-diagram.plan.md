@@ -56,8 +56,10 @@ Tests first for each step, and one commit per step. Run the tests with `python3 
    first one fail, then fix `_agent()`.
 3. **Make pre-commit legible.** Move the gitleaks body out of `.githooks/pre-commit` into
    `scripts/secret_scan.sh`. The hook becomes `# pipeline: blocks` plus
-   `scripts/secret_scan.sh "$@" || exit 1`. `tests/test_secret_scan.py` must pass unchanged, and it
-   is the proof that the annotation is true.
+   `scripts/secret_scan.sh "$@" || exit 1`. In `tests/test_secret_scan.py`, the two tests that read
+   the hook's source (`test_scanner_image_is_pinned_by_digest`, `test_hook_does_not_build_anything`)
+   must read `scripts/secret_scan.sh` instead. Change them first and watch them fail. Every
+   behaviour test stays unchanged, and passing them is the proof that the annotation is true.
 4. **Generate the diagram.** Copy `test_pipeline_diagram.py` minus the 3 tests, and watch the drift
    test fail. Add a `## Pipeline` section to `README.md` between "Secret leak gate" and "Backlog",
    with `<!-- pipeline:start -->` / `<!-- pipeline:end -->`. Copy `post-commit` and change nothing
