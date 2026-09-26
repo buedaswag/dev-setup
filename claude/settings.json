@@ -51,6 +51,17 @@
   },
   "model": "opus",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/ws/dev-setup/claude/guards/command_guard.py\" || exit 2"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "",
