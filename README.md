@@ -49,6 +49,27 @@ a credential — enable with `git config core.hooksPath .githooks`.
 
 Tests: `python3 -m unittest discover tests/`
 
+## Pipeline
+
+<!-- pipeline:start -->
+[![Pipeline](docs/pipeline.svg)](docs/pipeline.md)
+
+<sub>Generated from the hooks and workflows. Full detail: [`docs/pipeline.md`](docs/pipeline.md).</sub>
+
+<details><summary>Shape, in text</summary>
+
+```mermaid
+graph LR
+    agent["<b>Agent</b><br/>batch guard"]
+    commit["<b>git commit</b><br/>pre-commit, post-commit (1 of 2 gate)"]
+    ci["<b>CI — on push</b><br/>gitleaks, tests"]
+    agent --> commit
+    commit --> ci
+```
+
+</details>
+<!-- pipeline:end -->
+
 ## Backlog: Refactor Along the Way
 
 Known and deliberately not done yet. Each one gets picked up the next time I'm in that file.
