@@ -3,8 +3,8 @@ graph TD
         batch_guard["<div style='text-align:left'><b>batch guard</b><br/><i>.claude/guard-rules.json</i></div>"]
     end
     subgraph commit["git commit"]
-        pre_commit["<div style='text-align:left'><b>pre-commit</b><br/><i>.githooks/pre-commit</i><br/>runs:<br/>• scripts/secret_scan.sh '$@' #124;#124; exit 1</div>"]
-        post_commit["<div style='text-align:left'><b>post-commit</b><br/><i>.githooks/post-commit</i><br/>runs:<br/>◦ python scripts/pipeline_diagram.py --check >/dev/null 2>&1 && exit 0<br/>◦ git diff --quiet -- README.md #124;#124; #123;<br/>◦ python scripts/pipeline_diagram.py >/dev/null<br/>◦ echo 'Pipeline diagram redrawn, but README.md has edits of its own -- commit it…<br/>◦ #125;<br/>◦ python scripts/pipeline_diagram.py >/dev/null<br/>◦ git add docs/ README.md && git commit --no-verify --quiet -m 'Regenerate the pi…<br/>◦ echo 'Pipeline diagram regenerated in a follow-up commit.' >&2</div>"]
+        pre_commit["<div style='text-align:left'><b>pre-commit</b><br/><i>.githooks/pre-commit</i><br/>runs:<br/>• scripts/secret_scan.sh</div>"]
+        post_commit["<div style='text-align:left'><b>post-commit</b><br/><i>.githooks/post-commit</i><br/>runs:<br/>◦ scripts/pipeline_diagram.py</div>"]
     end
     subgraph ci["CI — on push"]
         security_gitleaks["<div style='text-align:left'><b>gitleaks</b><br/><i>.github/workflows/security.yml</i></div>"]

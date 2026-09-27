@@ -102,6 +102,19 @@ class TestRendering(unittest.TestCase):
                     f"nothing in {earlier.value} leads into {later.value}",
                 )
 
+    def test_a_hook_box_lists_the_scripts_it_calls_not_its_plumbing(self):
+        """post-commit calls pipeline_diagram.py twice and a lot of git and echo.
+
+        The box should say it runs the diagram script, once, and nothing else.
+        """
+        box = next(
+            line for line in self.diagram.splitlines()
+            if line.strip().startswith("post_commit[")
+        )
+        self.assertEqual(box.count("scripts/pipeline_diagram.py"), 1)
+        for plumbing in ("git diff", "git add", "echo", "#125;"):
+            self.assertNotIn(plumbing, box)
+
     def test_node_ids_are_unique(self):
         """`npm-audit` is defined in both workflows.
 

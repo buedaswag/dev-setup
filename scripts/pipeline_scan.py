@@ -75,6 +75,8 @@ class Stage:
     triggers: list[str] = field(default_factory=list)
     uses: list[str] = field(default_factory=list)
     blocks: bool = True
+    # The repo's own scripts among `steps`, each once. See `_calls`.
+    calls: list[Step] = field(default_factory=list)
 
     @property
     def key(self) -> str:
@@ -221,9 +223,32 @@ def _hooks(root: Path) -> list[Stage]:
                 source=str(path.relative_to(root)),
                 steps=steps,
                 blocks=any(step.blocks for step in steps),
+                calls=_calls(steps, root),
             )
         )
     return stages
+
+
+# A word in a command that could be a path. Quotes, redirections and operators
+# fall outside it, so `scripts/x.py>/dev/null` still yields the path.
+PATH_WORD = re.compile(r"[\w./-]+")
+SCRIPT_SUFFIXES = (".py", ".sh")
+
+
+def _calls(steps: list[Step], root: Path) -> list[Step]:
+    """The repo's scripts a hook calls, in first-call order, each once.
+
+    A script is a word naming a `.py` or `.sh` file in the repo -- not `git`,
+    not `echo`, not `README.md`. Those are how a hook does its job; the scripts
+    are what it runs. Called twice, it is listed once, and it blocks if any
+    call to it blocks.
+    """
+    calls: dict[str, bool] = {}
+    for step in steps:
+        for word in PATH_WORD.findall(step.command):
+            if word.endswith(SCRIPT_SUFFIXES) and (root / word).is_file():
+                calls[word] = calls.get(word, False) or step.blocks
+    return [Step(command=path, blocks=blocks) for path, blocks in calls.items()]
 
 
 def _hook_sort_key(path: Path):

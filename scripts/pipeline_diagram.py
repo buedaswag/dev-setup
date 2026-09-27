@@ -167,15 +167,16 @@ def _node(stage: Stage) -> str:
     shape of the pipeline and where each part is declared. The source path is
     on the box precisely so the detail is one click away.
 
-    The exception is a hook whose steps disagree about gating: that difference
-    is the thing worth seeing, so it is drawn.
+    The exception is a hook: it lists the repo scripts it calls, each once,
+    because which of them gate can differ within one hook, and that is the
+    thing worth seeing. Its git and echo plumbing is left in the file.
     """
     # For a hook the name *is* the file name; for a CI job it is the job, and
     # bolding the workflow file instead would title five boxes "deploy.yml".
     parts = [f"<b>{_escape(stage.name)}</b>", f"<i>{_escape(stage.source)}</i>"]
     if _detailed(stage):
         parts.append("runs:")
-        for step in stage.steps:
+        for step in stage.calls:
             bullet = "•" if step.blocks else "◦"
             parts.append(f"{bullet} {_escape(_shorten(step.command))}")
     elif not stage.blocks:
@@ -195,7 +196,7 @@ def _detailed(stage: Stage) -> bool:
     workflow path instead, and GitHub renders that file better than a diagram
     box ever will.
     """
-    return stage.group in (Group.COMMIT, Group.PUSH) and bool(stage.steps)
+    return stage.group in (Group.COMMIT, Group.PUSH) and bool(stage.calls)
 
 
 def _edges(stages: list[Stage], grouped: dict[Group, list[Stage]]) -> list[str]:

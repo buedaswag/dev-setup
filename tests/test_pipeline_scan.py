@@ -219,6 +219,45 @@ class TestCommandExtraction(PipelineScanTestCase):
         )
 
 
+class TestScriptCalls(PipelineScanTestCase):
+    """What a hook box shows: the repo's scripts it calls, each once.
+
+    `git diff`, `echo` and a closing `}` are how a hook does its job, not what
+    it runs. The scripts are the part worth seeing on the map.
+    """
+
+    def test_a_hook_lists_each_script_it_calls_once(self):
+        write(self.root / "scripts" / "draw.py", "")
+        write(self.hooks / "post-commit", """
+            #!/bin/sh
+            # pipeline: advisory
+            python scripts/draw.py --check >/dev/null 2>&1 && exit 0
+            git diff --quiet -- README.md || {
+                python scripts/draw.py >/dev/null
+                echo "redrawn" >&2
+            }
+            git add docs/ README.md
+        """)
+        self.assertEqual(
+            [(s.command, s.blocks) for s in self.stage("post-commit").calls],
+            [("scripts/draw.py", False)],
+        )
+
+    def test_a_script_blocks_if_any_call_to_it_blocks(self):
+        write(self.root / "scripts" / "gate.sh", "")
+        write(self.hooks / "pre-commit", """
+            #!/bin/sh
+            # pipeline: advisory
+            scripts/gate.sh --dry-run
+            # pipeline: blocks
+            scripts/gate.sh || exit 1
+        """)
+        self.assertEqual(
+            [(s.command, s.blocks) for s in self.stage("pre-commit").calls],
+            [("scripts/gate.sh", True)],
+        )
+
+
 class TestWorkflows(PipelineScanTestCase):
 
     def test_jobs_become_stages_carrying_their_run_steps(self):
