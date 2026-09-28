@@ -90,3 +90,7 @@ Known and deliberately not done yet. Each one gets picked up the next time I'm i
   entry point that depends on PyYAML. It gets installed at a pinned version in each repo's CI,
   replacing the copied `scripts/pipeline_*.py`. Do it when a third repo copies the files, or the
   first time two copies drift. Until then, deploying means `cp`.
+- **Version the key VS Code settings.** Start with `Cmd+T` opening the terminal, which means
+  overriding its default of "Go to Symbol in Workspace". These live in
+  `~/Library/Application Support/Code/User/` (`keybindings.json`, `settings.json`). Mirror them
+  here the same way `.zshrc` is, so a new machine gets them from the repo and not from memory.
