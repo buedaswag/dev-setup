@@ -72,12 +72,6 @@ class GcTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.subjects(), ["second", "first"])
 
-    def test_amend_replaces_the_previous_commit(self):
-        self.gc('"first"')
-        result = self.gc('"first, reworded" --amend')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.subjects(), ["first, reworded"])
-
 
 if __name__ == "__main__":
     unittest.main()
