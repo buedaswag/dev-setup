@@ -42,6 +42,10 @@ alias gb="git branch"
 unalias gc 2>/dev/null
 gc() { git commit -m "$1" "${@:2}" }
 
+# gp [flags] -- push the current branch to origin, upstream or not. Replaces omz's gp (git push).
+unalias gp 2>/dev/null
+gp() { git push origin "$(git branch --show-current)" "$@" }
+
 # Just fun
 alias fucking=sudo
 
