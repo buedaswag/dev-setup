@@ -37,6 +37,11 @@ alias gaa='git add .'
 alias ga.='git add .'
 alias gb="git branch"
 
+# gc "message" [flags] -- e.g. gc "fix typo" -a, gc "reworded" --amend.
+# Replaces omz's gc (git commit --verbose); the alias has to go before the function can be defined.
+unalias gc 2>/dev/null
+gc() { git commit -m "$1" "${@:2}" }
+
 # Just fun
 alias fucking=sudo
 
