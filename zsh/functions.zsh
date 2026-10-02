@@ -44,7 +44,7 @@ gac() {
         echo "No changes to commit."
         return 1
     fi
-    commit_message="Modified files: $(echo "$modified_files" | tr '\n' ', ' | sed 's/, $//')"
+    commit_message="Modified files: $(echo "$modified_files" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
 
     # Add all changes
     git add .
@@ -53,19 +53,7 @@ gac() {
     git commit -m "$commit_message"
 }
 
-# gac, then push to the current branch.
+# gac, then gp (aliases.zsh): push the current branch to origin.
 gacp() {
-    gac || return 1  # Exit if gac fails
-
-    # Get the current branch
-    current_branch=$(git branch --show-current)
-
-    # Ensure we have a valid branch
-    if [[ -z "$current_branch" ]]; then
-        echo "Could not determine the current branch."
-        return 1
-    fi
-
-    # Push to the current branch
-    git push origin "$current_branch"
+    gac && gp
 }

@@ -1,9 +1,9 @@
-"""zsh/aliases.zsh: the git shortcuts that replace omz's.
+"""zsh/aliases.zsh and functions.zsh: the git shortcuts, including those replacing omz's.
 
 `gc "message" [flags]` commits with that message; `gp` pushes the current branch to
-origin. omz's git plugin defines both (`gc='git commit --verbose'`, `gp='git push'`)
-and aliases.zsh is sourced after it, so these tests define those aliases first, the
-way a real shell would have them.
+origin; `gacp` adds, commits and pushes. omz's git plugin defines gc and gp
+(`gc='git commit --verbose'`, `gp='git push'`) and aliases.zsh is sourced after it,
+so these tests define those aliases first, the way a real shell would have them.
 
 Each test runs in a throwaway $HOME (aliases.zsh writes `git config --global`) and a
 fresh repo, so they never touch the real ones.
@@ -16,6 +16,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ALIASES_FILE = REPO_ROOT / "zsh" / "aliases.zsh"
+FUNCTIONS_FILE = REPO_ROOT / "zsh" / "functions.zsh"
 
 OMZ_ALIASES = "alias gc='git commit --verbose'\nalias gp='git push'"
 
@@ -49,7 +50,7 @@ class GitShortcutsTest(unittest.TestCase):
     def shell(self, line):
         # On stdin, not -c: -c parses the whole script before the alias exists, stdin
         # reads line by line, as at a prompt.
-        script = f'{OMZ_ALIASES}\nsource "{ALIASES_FILE}"\n{line}\n'
+        script = f'{OMZ_ALIASES}\nsource "{ALIASES_FILE}"\nsource "{FUNCTIONS_FILE}"\n{line}\n'
         return subprocess.run(
             ["zsh", "-f"],
             input=script,
@@ -75,15 +76,30 @@ class GitShortcutsTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.subjects(), ["second", "first"])
 
-    def test_gp_pushes_the_current_branch_to_origin(self):
+    def add_origin(self):
         origin = self.home / "origin.git"
         self.git("init", "-q", "--bare", str(origin))
         self.git("remote", "add", "origin", str(origin))
         self.git("commit", "-q", "-m", "first")
         # A new branch with no upstream: plain `git push` refuses this.
         self.git("switch", "-q", "-c", "feature")
+        return origin
+
+    def test_gp_pushes_the_current_branch_to_origin(self):
+        origin = self.add_origin()
         result = self.shell("gp")
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.git("rev-parse", "feature", cwd=origin),
+            self.git("rev-parse", "HEAD"),
+        )
+
+    def test_gacp_commits_everything_and_pushes_the_current_branch(self):
+        origin = self.add_origin()
+        (self.repo / "new").write_text("new\n")
+        result = self.shell("gacp")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.subjects()[0], "Modified files: new")
         self.assertEqual(
             self.git("rev-parse", "feature", cwd=origin),
             self.git("rev-parse", "HEAD"),
