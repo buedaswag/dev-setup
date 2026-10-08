@@ -31,11 +31,6 @@ export PATH="/opt/homebrew/opt/openssl@1.1/bin:$PATH"
 # poetry
 export PATH="$HOME/.poetry/bin:$PATH"
 
-# ruby
-export PATH="/usr/local/opt/ruby/bin:$PATH"
-export LDFLAGS="-L/usr/local/opt/ruby/lib"
-export CPPFLAGS="-I/usr/local/opt/ruby/include"
-
 # gcloud google cloud
 # source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc"
 # source "$(brew --prefix)/share/google-cloud-sdk/completion.zsh.inc"
