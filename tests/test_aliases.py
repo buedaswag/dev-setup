@@ -76,6 +76,19 @@ class GitShortcutsTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.subjects(), ["second", "first"])
 
+    def test_gc_flags_before_the_message_go_to_git_commit(self):
+        self.shell('gc "first"')
+        result = self.shell('gc --amend "first, reworded"')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.subjects(), ["first, reworded"])
+
+    def test_gd_shows_the_unstaged_diff(self):
+        self.git("commit", "-q", "-m", "first")
+        (self.repo / "file").write_text("two\n")
+        result = self.shell("gd")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("-one\n+two\n", result.stdout)
+
     def add_origin(self):
         origin = self.home / "origin.git"
         self.git("init", "-q", "--bare", str(origin))

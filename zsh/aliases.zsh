@@ -36,11 +36,18 @@ alias ga='git add'
 alias gaa='git add .'
 alias ga.='git add .'
 alias gb="git branch"
+alias gd='git diff'
 
-# gc "message" [flags] -- e.g. gc "fix typo" -a.
+# gc "message" [flags], or gc [flags] "message" -- e.g. gc "fix typo" -a, gc --amend "reworded".
 # Replaces omz's gc (git commit --verbose); the alias has to go before the function can be defined.
 unalias gc 2>/dev/null
-gc() { git commit -m "$1" "${@:2}" }
+gc() {
+    if [[ $1 == -* ]]; then
+        git commit -m "${@[-1]}" "${@[1,-2]}"
+    else
+        git commit -m "$1" "${@:2}"
+    fi
+}
 
 # gp [flags] -- push the current branch to origin, upstream or not. Replaces omz's gp (git push).
 unalias gp 2>/dev/null
