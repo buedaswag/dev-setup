@@ -48,6 +48,10 @@ jobs:
         # PyYAML, for the pipeline scan to read this workflow.
         run: pip install -r requirements.txt
 
+      - name: Install zsh
+        # The shell config tests run zsh; ubuntu-latest doesn't ship it.
+        run: sudo apt-get update -q && sudo apt-get install -y -q zsh
+
       - name: Run tests
         # The guard engine's tests are pure Python and need nothing else running.
         # The secret-gate tests need Docker, which this runner has.
