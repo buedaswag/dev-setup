@@ -78,10 +78,11 @@ class VaultTest(unittest.TestCase):
 
 class PlaintextIsIgnoredTest(unittest.TestCase):
     def test_proxy_hell_plaintext_is_gitignored(self):
-        result = subprocess.run(
-            ["git", "check-ignore", "-q", "proxy-hell/debug.md"], cwd=REPO_ROOT
-        )
-        self.assertEqual(result.returncode, 0, "proxy-hell/debug.md is not gitignored")
+        for doc in ("proxy-setup-tldr.md", "my-remaining-setup.md"):
+            result = subprocess.run(
+                ["git", "check-ignore", "-q", f"proxy-hell/{doc}"], cwd=REPO_ROOT
+            )
+            self.assertEqual(result.returncode, 0, f"proxy-hell/{doc} is not gitignored")
 
 
 if __name__ == "__main__":

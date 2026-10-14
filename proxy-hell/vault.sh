@@ -2,8 +2,8 @@
 # Password-encrypt a file so only its ciphertext is committed. This repo is public;
 # notes naming internal hosts and accounts live here as FILE.enc, FILE is gitignored.
 #
-#   proxy-hell/vault.sh encrypt proxy-hell/debug.md      # -> proxy-hell/debug.md.enc
-#   proxy-hell/vault.sh decrypt proxy-hell/debug.md.enc  # -> proxy-hell/debug.md
+#   proxy-hell/vault.sh encrypt proxy-hell/FILE.md      # -> proxy-hell/FILE.md.enc
+#   proxy-hell/vault.sh decrypt proxy-hell/FILE.md.enc  # -> proxy-hell/FILE.md
 #
 # openssl prompts for the password; VAULT_PASSWORD is read instead when set.
 #

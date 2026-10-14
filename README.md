@@ -110,11 +110,11 @@ Known and deliberately not done yet. Each one gets picked up the next time I'm i
 ## proxy-hell
 
 ```bash
-proxy-hell/vault.sh encrypt proxy-hell/debug.md
-proxy-hell/vault.sh decrypt proxy-hell/debug.md.enc
+for f in proxy-hell/*.md; do proxy-hell/vault.sh encrypt "$f"; done
+for f in proxy-hell/*.md.enc; do proxy-hell/vault.sh decrypt "$f"; done
 ```
 
 Known gaps in `vault.sh` (audited, not fixed):
 - A wrong password "decrypts" to garbage ~3 times in 1000 (no integrity check in `openssl enc`).
-- `encrypt` doesn't check the password matches the one already on `debug.md.enc`.
-- Every `encrypt` changes `debug.md.enc`, even if `debug.md` didn't.
+- `encrypt` doesn't check the password matches the one already on the `.enc`.
+- Every `encrypt` changes the `.enc`, even if the `.md` didn't.
