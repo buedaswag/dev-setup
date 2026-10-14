@@ -1,10 +1,12 @@
-# ~/.zshrc — copy this one file into place on a new machine:
+# ~/.zshrc — on a new machine, make ~/.zshrc a one-line stub that sources this file:
 #
-#     cp ~/ws/dev-setup/zsh/.zshrc ~/.zshrc
+#     echo 'source ~/ws/dev-setup/zsh/.zshrc' > ~/.zshrc
 #
-# That is the whole install. Everything with a body sits beside this file and is
-# sourced from there, so this is a table of contents and nothing else — which is why
-# one `cp` is enough and why it rarely needs doing again.
+# That is the whole install, and edits here are live. Not `cp` (every edit would need
+# re-copying) and not a symlink (installers that append to ~/.zshrc would write
+# machine-specific lines into this public repo); they append to the stub instead.
+# Everything with a body sits beside this file and is sourced from there, so this is a
+# table of contents and nothing else.
 #
 # Listed one by one rather than globbed: oh-my-zsh owns the prompt and has to run
 # before anything prints, and `zsh/*.zsh` would sort aliases.zsh ahead of it.

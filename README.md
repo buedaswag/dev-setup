@@ -6,8 +6,8 @@ How my machine and my Claude Code agents are set up. Lives at `~/ws/dev-setup`.
 
 - [Maccy](https://maccy.app/) — clipboard manager
 - [Rectangle](https://rectangleapp.com/) — window management
-- Shell config is in `zsh/`. Install: `cp ~/ws/dev-setup/zsh/.zshrc ~/.zshrc` (it sources the
-  rest of `zsh/` in place, so edits there are live).
+- Shell config is in `zsh/`. Install: `echo 'source ~/ws/dev-setup/zsh/.zshrc' > ~/.zshrc` -- a
+  stub, so edits in `zsh/` are live and installers that append to `~/.zshrc` don't touch the repo.
 - VS Code user config is in `vscode/`: saving trims trailing whitespace and ends the file in one
   newline, and `Cmd+T` opens the terminal. Install by linking, so edits made in VS Code land here:
   `ln -sf ~/ws/dev-setup/vscode/{settings,keybindings}.json ~/Library/Application\ Support/Code/User/`
@@ -90,10 +90,6 @@ graph LR
 
 Known and deliberately not done yet. Each one gets picked up the next time I'm in that file.
 
-- **Auto-commit `.zshrc` on change.** Manual `cp` for now. `global-claude/sync.sh` only walks paths under
-  `~/.claude`, so this needs its `PATHS` generalised to `src:dest` pairs. Deliberately second: an
-  auto-committer pointed at `.zshrc` is what made the secret gate a prerequisite, and the gate
-  should have some mileage on it before anything commits that file unattended.
 - **Let one repo reuse another's guard rules** — an `extends` key in `guard-rules.json` resolved
   before `Rules.__init__`. Today every repo keeps its own copy, and copy-paste is fine until
   there are enough of them to drift.
