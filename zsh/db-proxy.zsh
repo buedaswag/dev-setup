@@ -1,5 +1,5 @@
 # Corporate laptop: shortcuts for myproxy, the local Kerberos proxy on 127.0.0.1:9080.
-# Sourced from .zshrc. Setup and why: proxy-hell/ (encrypted).
+# Sourced from .zshrc. Setup and why: proxy-hell/ in the private laptop-from-hell repo.
 #
 # The LaunchAgents are labelled com.<mac user>.*; $USER fills that in, so the account
 # name stays out of this public repo.

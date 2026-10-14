@@ -102,15 +102,3 @@ Known and deliberately not done yet. Each one gets picked up the next time I'm i
   entry point that depends on PyYAML. It gets installed at a pinned version in each repo's CI,
   replacing the copied `scripts/pipeline_*.py`. Do it when a third repo copies the files, or the
   first time two copies drift. Until then, deploying means `cp`.
-
-## proxy-hell
-
-```bash
-for f in proxy-hell/*.md; do proxy-hell/vault.sh encrypt "$f"; done
-for f in proxy-hell/*.md.enc; do proxy-hell/vault.sh decrypt "$f"; done
-```
-
-Known gaps in `vault.sh` (audited, not fixed):
-- A wrong password "decrypts" to garbage ~3 times in 1000 (no integrity check in `openssl enc`).
-- `encrypt` doesn't check the password matches the one already on the `.enc`.
-- Every `encrypt` changes the `.enc`, even if the `.md` didn't.
