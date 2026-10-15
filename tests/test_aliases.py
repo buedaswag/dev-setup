@@ -113,6 +113,9 @@ class GitShortcutsTest(unittest.TestCase):
         # Someone else pushes to feature; this repo still has no upstream set.
         other = self.home / "other"
         self.git("clone", "-q", "-b", "feature", str(origin), str(other), cwd=self.home)
+        # CI has no global identity to fall back on; macOS guesses one, Linux won't.
+        self.git("config", "user.email", "other@example.com", cwd=other)
+        self.git("config", "user.name", "Other", cwd=other)
         (other / "file").write_text("theirs\n")
         self.git("commit", "-q", "-am", "theirs", cwd=other)
         self.git("push", "-q", cwd=other)
