@@ -34,6 +34,13 @@ if [ -z "$DIR" ]; then
   exit 1
 fi
 
+# Share downloaded providers between directories, so each provider is
+# downloaded once instead of once per directory. Uses the cache folder
+# already set, if any, otherwise Terraform's usual one. Terraform does not
+# create this folder itself.
+export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-$HOME/.terraform.d/plugin-cache}"
+mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
 
 # Does this directory have Terraform tests?
 has_tests() {
