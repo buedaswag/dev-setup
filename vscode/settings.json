@@ -1,0 +1,14 @@
+{
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "files.trimTrailingWhitespace": false
+  },
+  "[plaintext]": {
+    "editor.wordWrap": "on"
+  },
+  "terminal.integrated.enableMultiLinePasteWarning": "never",
+  "editor.accessibilitySupport": "off",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true
+}

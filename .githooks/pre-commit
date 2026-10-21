@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Secret gate: scripts/secret_scan.sh says why it runs here and how it scans.
+#
+# Install (once per repo):
+#   git config core.hooksPath .githooks
+#
+# Bypass, when I have looked at the finding and it is wrong:
+#   git commit --no-verify
+
+# pipeline: blocks
+scripts/secret_scan.sh "$@" || exit 1
