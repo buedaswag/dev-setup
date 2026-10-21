@@ -16,7 +16,6 @@ alias g=git
 alias d=docker
 alias j='jupyter notebook'
 alias jn='jupyter notebook'
-alias hg='history | grep'
 alias tf='terraform'
 alias k='kubectl'
 alias pm='python manage.py'
@@ -58,6 +57,18 @@ gpull() { git pull origin "$(git branch --show-current)" "$@" }
 
 # Just fun
 alias fucking=sudo
+
+# hg word [word...] -- history lines containing every word, in any order, any case.
+# e.g. hg login terraform finds "terraform login tralalalala".
+unalias hg 2>/dev/null
+hg() {
+  local out word
+  out=$(builtin fc -l 1) || return
+  for word in "$@"; do
+    out=$(print -r -- "$out" | grep -iF -- "$word") || return 1
+  done
+  print -r -- "$out"
+}
 
 # history grep tail
 hgt() {

@@ -135,5 +135,47 @@ class GitShortcutsTest(unittest.TestCase):
         )
 
 
+class HistoryGrepTest(unittest.TestCase):
+    """`hg word [word...]` lists history lines containing every word, any order, any case."""
+
+    HISTORY = [
+        "terraform login tralalalala",
+        "terraform plan",
+        "git status",
+        "Terraform apply -auto-approve",
+    ]
+
+    def hg(self, args):
+        with tempfile.TemporaryDirectory() as tmp:
+            histfile = Path(tmp) / "history"
+            histfile.write_text("\n".join(self.HISTORY) + "\n")
+            script = (
+                f'HISTSIZE=100\nfc -R "{histfile}"\n'
+                f'source "{ALIASES_FILE}"\nhg {args}\n'
+            )
+            env = {"HOME": tmp, "PATH": "/usr/bin:/bin"}
+            return subprocess.run(
+                ["zsh", "-f"], input=script, env=env, capture_output=True, text=True
+            )
+
+    def commands(self, result):
+        # fc -l prints "  <n>  <command>"; keep just the command.
+        return [line.split(None, 1)[1] for line in result.stdout.splitlines()]
+
+    def test_one_word_matches_longer_commands(self):
+        result = self.hg("terraform")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("terraform login tralalalala", self.commands(result))
+
+    def test_several_words_must_all_appear_in_any_order(self):
+        result = self.hg("login terraform")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.commands(result), ["terraform login tralalalala"])
+
+    def test_case_is_ignored(self):
+        result = self.hg("terraform apply")
+        self.assertEqual(self.commands(result), ["Terraform apply -auto-approve"])
+
+
 if __name__ == "__main__":
     unittest.main()
