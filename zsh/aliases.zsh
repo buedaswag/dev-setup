@@ -58,13 +58,17 @@ gpull() { git pull origin "$(git branch --show-current)" "$@" }
 # Just fun
 alias fucking=sudo
 
-# hg word [word...] -- the commands I ran: lines whose command (alias expanded) is one of the
+# hg [-n N] word [word...] -- the commands I ran: lines whose command (alias expanded) is one of the
 # words and that contain every word, any order, any case. No such line: every word, anywhere.
-# Plain, deduplicated, newest last. At a terminal, pick a number and it lands on the next prompt.
+# Plain, deduplicated, newest last; -n N keeps the latest N. At a terminal, pick a number and
+# it lands on the next prompt.
 # e.g. hg terraform finds "terraform login x" and "tf plan", not "mkdir terraform".
 unalias hg 2>/dev/null
 hg() {
-  (( $# )) || { print -u2 "usage: hg word [word...]"; return 2 }
+  local -a limit
+  zparseopts -D -F -- n:=limit || return 2
+  [[ -z $limit || $limit[2] == <1-> ]] || { print -u2 "hg: -n wants a positive number"; return 2 }
+  (( $# )) || { print -u2 "usage: hg [-n N] word [word...]"; return 2 }
   local line expanded cmd word i pick
   local -a words commands anywhere matches
   local -A seen
@@ -89,6 +93,7 @@ hg() {
     matches=("${commands[i]}" "${matches[@]}")
   done
   (( $#matches )) || return 1
+  (( $#limit && limit[2] < $#matches )) && matches=("${(@)matches[-${limit[2]},-1]}")
   if [[ ! -t 0 || ! -t 1 ]]; then
     print -rl -- "${matches[@]}"
     return
@@ -99,16 +104,4 @@ hg() {
   read -r "pick?Pick a number to put it on the prompt (Enter to quit): " || return 0
   [[ $pick == <1-> && $pick -le $#matches ]] && print -z -- "${matches[pick]}"
   return 0
-}
-
-# history grep tail
-hgt() {
-  if [ -z "$1" ]; then
-    echo "Error: Missing search string argument"
-    return 1
-  fi
-
-  local search_string="$1"
-  local tail_count=${2:-10}
-  history | grep "$search_string" | tail -n "$tail_count"
 }

@@ -34,5 +34,4 @@ Tests first, one commit each.
 
 ## Open
 
-- Whether to add fzf as a dependency later for fuzzy picking.
-- `hgt` stays as is; fold it into `hg` or drop it — mine to decide.
+- `hgt`: folded into `hg -n N`. fzf: no — no new dependencies.

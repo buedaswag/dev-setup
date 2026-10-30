@@ -214,6 +214,22 @@ class HistoryGrepTest(unittest.TestCase):
             ],
         )
 
+    def test_dash_n_keeps_only_the_latest(self):
+        result = self.hg("-n 2 terraform")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.commands(result), ["terraform init", "terraform version"])
+
+    def test_dash_n_beyond_the_matches_keeps_them_all(self):
+        self.assertEqual(len(self.commands(self.hg("-n 50 terraform"))), 5)
+
+    def test_dash_n_needs_a_positive_number(self):
+        result = self.hg("-n x terraform")
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+
+    def test_hgt_is_gone(self):
+        self.assertNotEqual(self.hg("terraform; hgt terraform").returncode, 0)
+
     def test_nothing_found_fails(self):
         result = self.hg("nonexistent")
         self.assertEqual(result.returncode, 1)
