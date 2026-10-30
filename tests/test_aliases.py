@@ -136,36 +136,55 @@ class GitShortcutsTest(unittest.TestCase):
 
 
 class HistoryGrepTest(unittest.TestCase):
-    """`hg word [word...]` lists history lines containing every word, any order, any case."""
+    """`hg word [word...]` lists the commands I ran: the line's command (alias expanded) is one
+    of the words, every word appears, any order, any case. Plain, deduplicated, newest last."""
 
     HISTORY = [
+        "terraform init",
         "terraform login tralalalala",
-        "terraform plan",
+        "mkdir terraform",
+        "cp ../terraform-google-vm/examples/simple/* terraform/",
+        "tf plan -out plan.tfplan",
         "git status",
+        "locust -f locustfile.py -t 10min",
         "Terraform apply -auto-approve",
+        "terraform init",
+        "terraform version\\",
+        "",
     ]
+
+    def script(self, tmp, line):
+        histfile = Path(tmp) / "history"
+        histfile.write_text("\n".join(self.HISTORY) + "\n")
+        return (
+            f'HISTSIZE=100\nfc -R "{histfile}"\n'
+            f'source "{ALIASES_FILE}"\n{line}\n'
+        )
 
     def hg(self, args):
         with tempfile.TemporaryDirectory() as tmp:
-            histfile = Path(tmp) / "history"
-            histfile.write_text("\n".join(self.HISTORY) + "\n")
-            script = (
-                f'HISTSIZE=100\nfc -R "{histfile}"\n'
-                f'source "{ALIASES_FILE}"\nhg {args}\n'
-            )
             env = {"HOME": tmp, "PATH": "/usr/bin:/bin"}
             return subprocess.run(
-                ["zsh", "-f"], input=script, env=env, capture_output=True, text=True
+                ["zsh", "-f"],
+                input=self.script(tmp, f"hg {args}"),
+                env=env,
+                capture_output=True,
+                text=True,
             )
 
     def commands(self, result):
-        # fc -l prints "  <n>  <command>"; keep just the command.
-        return [line.split(None, 1)[1] for line in result.stdout.splitlines()]
+        return result.stdout.splitlines()
 
-    def test_one_word_matches_longer_commands(self):
+    def test_lists_only_lines_whose_command_is_the_word(self):
         result = self.hg("terraform")
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("mkdir terraform", self.commands(result))
         self.assertIn("terraform login tralalalala", self.commands(result))
+
+    def test_aliases_count_as_their_command(self):
+        self.assertIn("tf plan -out plan.tfplan", self.commands(self.hg("terraform")))
+        self.assertIn("tf plan -out plan.tfplan", self.commands(self.hg("tf")))
+        self.assertNotIn("locust -f locustfile.py -t 10min", self.commands(self.hg("tf")))
 
     def test_several_words_must_all_appear_in_any_order(self):
         result = self.hg("login terraform")
@@ -175,6 +194,57 @@ class HistoryGrepTest(unittest.TestCase):
     def test_case_is_ignored(self):
         result = self.hg("terraform apply")
         self.assertEqual(self.commands(result), ["Terraform apply -auto-approve"])
+
+    def test_no_command_match_falls_back_to_anywhere(self):
+        result = self.hg("terraform-google-vm")
+        self.assertEqual(
+            self.commands(result),
+            ["cp ../terraform-google-vm/examples/simple/* terraform/"],
+        )
+
+    def test_plain_deduplicated_newest_last(self):
+        self.assertEqual(
+            self.commands(self.hg("terraform")),
+            [
+                "terraform login tralalalala",
+                "tf plan -out plan.tfplan",
+                "Terraform apply -auto-approve",
+                "terraform init",
+                "terraform version",
+            ],
+        )
+
+    def test_nothing_found_fails(self):
+        result = self.hg("nonexistent")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, "")
+
+    def test_at_a_terminal_the_pick_goes_on_the_next_prompt(self):
+        import os
+        import pty
+
+        with tempfile.TemporaryDirectory() as tmp:
+            # read -z pops what print -z pushed: that is what the next prompt would show.
+            script = Path(tmp) / "script.zsh"
+            script.write_text(self.script(tmp, 'hg terraform\nread -z picked\nprint "PICKED:$picked"'))
+            env = {"HOME": tmp, "PATH": "/usr/bin:/bin"}
+            pid, fd = pty.fork()
+            if pid == 0:
+                os.execve("/bin/zsh", ["zsh", "-f", str(script)], env)
+            out = b""
+            os.write(fd, b"2\n")
+            while True:
+                try:
+                    chunk = os.read(fd, 1024)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                out += chunk
+            os.waitpid(pid, 0)
+        text = out.decode()
+        self.assertIn("2) tf plan -out plan.tfplan", text)
+        self.assertIn("PICKED:tf plan -out plan.tfplan", text)
 
 
 if __name__ == "__main__":

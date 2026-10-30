@@ -58,16 +58,47 @@ gpull() { git pull origin "$(git branch --show-current)" "$@" }
 # Just fun
 alias fucking=sudo
 
-# hg word [word...] -- history lines containing every word, in any order, any case.
-# e.g. hg login terraform finds "terraform login tralalalala".
+# hg word [word...] -- the commands I ran: lines whose command (alias expanded) is one of the
+# words and that contain every word, any order, any case. No such line: every word, anywhere.
+# Plain, deduplicated, newest last. At a terminal, pick a number and it lands on the next prompt.
+# e.g. hg terraform finds "terraform login x" and "tf plan", not "mkdir terraform".
 unalias hg 2>/dev/null
 hg() {
-  local out word
-  out=$(builtin fc -l 1) || return
-  for word in "$@"; do
-    out=$(print -r -- "$out" | grep -iF -- "$word") || return 1
+  (( $# )) || { print -u2 "usage: hg word [word...]"; return 2 }
+  local line expanded cmd word i pick
+  local -a words commands anywhere matches
+  local -A seen
+  words=(${(L)@})
+  for line in ${(f)"$(builtin fc -ln 1)"}; do
+    line=${line%\\n}
+    cmd=${line%% *}
+    expanded=$line
+    [[ -n ${aliases[$cmd]} ]] && expanded="${aliases[$cmd]}${line#$cmd}"
+    # Typed and expanded both count: hg tf and hg terraform each find "tf plan".
+    for word in $words; do
+      [[ ${(L)line} == *"$word"* || ${(L)expanded} == *"$word"* ]] || continue 2
+    done
+    anywhere+=("$line")
+    (( ${words[(Ie)${(L)cmd}]} || ${words[(Ie)${(L)${expanded%% *}}]} )) && commands+=("$line")
   done
-  print -r -- "$out"
+  (( $#commands )) || commands=("${anywhere[@]}")
+  # Newest first so the latest copy of a repeat is the one kept, then back to oldest first.
+  for (( i = $#commands; i > 0; i-- )); do
+    (( ${+seen[${commands[i]}]} )) && continue
+    seen[${commands[i]}]=1
+    matches=("${commands[i]}" "${matches[@]}")
+  done
+  (( $#matches )) || return 1
+  if [[ ! -t 0 || ! -t 1 ]]; then
+    print -rl -- "${matches[@]}"
+    return
+  fi
+  for (( i = 1; i <= $#matches; i++ )); do
+    print -r -- "$i) ${matches[i]}"
+  done
+  read -r "pick?Pick a number to put it on the prompt (Enter to quit): " || return 0
+  [[ $pick == <1-> && $pick -le $#matches ]] && print -z -- "${matches[pick]}"
+  return 0
 }
 
 # history grep tail
