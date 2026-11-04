@@ -87,7 +87,7 @@ https://beyond.minimumcd.org/docs/foundations/work-decomposition/
   - By performance - get it working first, optimize later
   - By platform - support one platform first
   - Happy path first - implement the success case first
-- TODO (me): read through the article with some time and go into it. Find a tldr for vertical slicing too.
+- TODO (me): read through the article with some time and go into it. Find a tldr for vertical slicing and INVEST too.
 
 (see loop above in Starting point - how we are developing)
 "How to structure agent sessions so context stays manageable, commits stay small, and the pipeline stays green" - https://beyond.minimumcd.org/docs/agentic-cd/architecture/small-batch-sessions/
@@ -97,12 +97,8 @@ https://beyond.minimumcd.org/docs/foundations/work-decomposition/
 ## Lessons learned from applying this in practice
 
 - Work slicing was hard. The spec got way too big: ~250 lines, and it took 2 to 3 hours to build instead of the 15 minutes Bryan mentions.
-- Slicing the spec matters because we're aiming for faster feedback. A 15 minute spec means the code gets built fast, and then I have a hypothesis I can start collecting data on and validating. A story is made up of multiple specs.
-  - Bryan does say this:
-    - One spec per slice: "You specify the next single unit of work. One thin vertical slice of functionality - a single scenario, a single behavior." - [agent-assisted specification](https://beyond.minimumcd.org/docs/agentic-cd/specification/agent-assisted-specification/)
-    - Why: "Small-scope specification front-loads clarity on _one_ change and gets production feedback before specifying the next." - same article
-    - The 2 days: "If a work item takes longer than 2 days to complete, it is too big." - [work decomposition](https://beyond.minimumcd.org/docs/foundations/work-decomposition/)
-    - Hypothesis: "If the experiment requires weeks of development, the scope is too large." - [hypothesis-driven development](https://beyond.minimumcd.org/docs/optimize/hypothesis-driven-development/)
+- pair programming is tables stakes: this will result in massive code changes, so build the spec with your colleague.
+    - TODO (me): add at least a sectioon about pair programming etiquete?
 
 ## References
 
@@ -112,7 +108,7 @@ https://beyond.minimumcd.org/docs/foundations/work-decomposition/
 
 ## Next up:
 
-- review what i have against what claude gave me
+- DONE review what i have against what claude gave me
 - Try it out
   - Create a new repo and feature request
   - Write the feature
