@@ -33,16 +33,60 @@ One agent at a time:
 
 ### CLAUDE.md
 
-- What is it?
-  - Section - Configuration mechanisms - https://beyond.minimumcd.org/docs/agentic-cd/getting-started/agent-setup/
+- what? example: docs/ACD/assets/CLAUDE.md
 - Where to keep it?
-  - Keep it simple as a start and use a single file at the repo root
-  - Or at the claude root file you’re working in multiple terraform repositories for example
+  - ~/.claude/CLAUDE.md (stuff that applies to all repos)
+  - or
+  - Repo root (specific to one repo)
+  - Or at the claude root file if you’re working in multiple terraform repositories for example
     - For example if you work in terraform modules that all have roughly the same structure, and way to test, then specify that here
+
+TODO - put this link in the references and add a link to the references line here
+learn more: Section - Configuration mechanisms - https://beyond.minimumcd.org/docs/agentic-cd/getting-started/agent-setup/
 
 ### hooks
 
-- Use whatever you want (python, bash, go, Tasks, precommit python framework etc), configure them to run on pre/post commit, and pre push
+- The two you'll most likely have:
+  - **pre-commit** - runs before the commit, reports but never blocks (commit is a local save point; pre-push/CI are the gates). Ex: unit tests
+  - **post-commit** - runs after the commit exists, can't block anything. Ex: security checks, doc updates, lint fixes
+
+`.githooks/pre-commit`
+
+```bash
+#!/bin/bash
+# Report, never block: a non-zero exit here would abort the commit.
+python -m unittest discover tests || echo "Tests FAILED -- commit allowed, fix before pushing." >&2
+exit 0
+```
+
+`.githooks/post-commit`
+
+```bash
+#!/bin/bash
+# Runs after the commit. Its exit code changes nothing, so it only reports
+# and fixes. Any fixes land in the working tree for the next commit or an amend
+
+echo "Security checks..."
+pip-audit                 # known vulnerabilities in dependencies
+bandit -r src/ -q         # insecure code patterns
+
+echo "Docs..."
+python scripts/update_docs.py
+
+echo "Lint fixes..."
+ruff check --fix .
+ruff format .
+
+git diff --quiet || echo "post-commit changed files. Review and commit them." >&2
+```
+
+Install them (once per clone):
+
+```sh
+mkdir -p .githooks                          # hooks live in the repo, so they're versioned and shared
+chmod +x .githooks/pre-commit .githooks/post-commit
+git config core.hooksPath .githooks         # point git at them instead of .git/hooks
+```
 
 ### Skills
 
@@ -51,27 +95,26 @@ One agent at a time:
   - Start-session
   - Review
   - end-session
-TODO (me): explore whats a minimal way to get this set up, in a waz thats compatible w the loop above.
+TODO (me): explore whats a minimal way to get this set up
 
 ### Agent Delivery Contract or spec (now it gets interesting, and HAS NOTHING TO DO WITH AI!!)
 
-TODO (me): instead of going through both articles in paralel (one contains the examples, the other the prompts to crreate the example sections, merge the two and. put them here)
+“If your specification effort for a single change takes more than 15 minutes, the change is too large. Split it.”
+- Story or scenario too big? See [Slicing strategies](#slicing-strategies)
+
+TODO: instead of going through both articles in paralel (one contains the examples, the other the prompts to create the example sections, merge the two and. put them here - in a separate doc containing just the full spec (take from here - https://beyond.minimumcd.org/docs/agentic-cd/specification/first-class-artifacts/#2-user-facing-behavior) + one doc per section containing that section of the spec from before, plus the prompts to use to refine it that bryan has here https://beyond.minimumcd.org/docs/agentic-cd/specification/agent-assisted-specification/)
 https://beyond.minimumcd.org/docs/agentic-cd/specification/first-class-artifacts/#2-user-facing-behavior
 
 Single .md containing
 
 - Intent description (+ hypothesis)
+    - "Your scenarios should describe the intended behaviour of the system, not the implementation. In other words, it should describe what, not how."
+        - TODO add this to the references - https://cucumber.io/docs/bdd/better-gherkin/
 - User-facing behavior (behavior-driven development - BDD)
 - Feature description (architecture decisions, implementation details - the weeds)
 - Acceptance criteria (written as observable outcomes, not internal implementation details)
 - System constraints
-  - Can be derived from some global/project level constraints already defined in claude.md
-
-Example of using AI to write a spec (“If your specification effort for a single change takes more than 15 minutes, the change is too large. Split it.”)
-
-- https://beyond.minimumcd.org/docs/agentic-cd/specification/agent-assisted-specification/
-- Im fine with copy pasting the prompts because im learning the why/what/how
-- Story or scenario too big? See [Slicing strategies](#slicing-strategies)
+  - Stuff u have not already defined in claude.md
 
 ### Slicing strategies
 
@@ -87,12 +130,17 @@ https://beyond.minimumcd.org/docs/foundations/work-decomposition/
   - By performance - get it working first, optimize later
   - By platform - support one platform first
   - Happy path first - implement the success case first
-- TODO (me): read through the article with some time and go into it. Find a tldr for vertical slicing and INVEST too.
+
+The most important (and nuanced) slicing strategy:
+![alt text](image-3.png)
+    TODO: just slap this bitch on the doc.
+
+TODO just slap this table here and bold the meaning col
+![alt text](image-2.png)
 
 (see loop above in Starting point - how we are developing)
 "How to structure agent sessions so context stays manageable, commits stay small, and the pipeline stays green" - https://beyond.minimumcd.org/docs/agentic-cd/architecture/small-batch-sessions/
-- Tldr: we implement one BDD scenario at a time (see bellow - Agent Delivery Contract or spec)
-
+- Tldr: we implement and integrate one BDD scenario at a time (see bellow - Agent Delivery Contract or spec)
 
 ## Lessons learned from applying this in practice
 
