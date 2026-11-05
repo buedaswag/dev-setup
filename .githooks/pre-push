@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Secret gate: scans every commit this push adds and refuses the push on a finding,
+# or when the scan cannot run. scripts/secret_scan.sh says why it runs here.
+#
+# Bypass, when I have looked at the finding and it is wrong:
+#   git push --no-verify
+
+# pipeline: blocks
+scripts/secret_scan.sh --pushed || exit 1

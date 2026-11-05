@@ -16,8 +16,11 @@ graph TD
         batch_guard["<div style='text-align:left'><b>batch guard</b><br/><i>.claude/guard-rules.json</i></div>"]
     end
     subgraph commit["git commit"]
-        pre_commit["<div style='text-align:left'><b>pre-commit</b><br/><i>.githooks/pre-commit</i><br/>runs:<br/>• scripts/secret_scan.sh</div>"]
+        pre_commit["<div style='text-align:left'><b>pre-commit</b><br/><i>.githooks/pre-commit</i><br/>runs:<br/>◦ scripts/secret_scan.sh</div>"]
         post_commit["<div style='text-align:left'><b>post-commit</b><br/><i>.githooks/post-commit</i><br/>runs:<br/>◦ scripts/pipeline_diagram.py</div>"]
+    end
+    subgraph push["git push"]
+        pre_push["<div style='text-align:left'><b>pre-push</b><br/><i>.githooks/pre-push</i><br/>runs:<br/>• scripts/secret_scan.sh</div>"]
     end
     subgraph ci["CI — on push"]
         security_gitleaks["<div style='text-align:left'><b>gitleaks</b><br/><i>.github/workflows/security.yml</i></div>"]
@@ -25,8 +28,9 @@ graph TD
     end
     batch_guard --> pre_commit
     batch_guard --> post_commit
-    post_commit --> security_gitleaks
-    post_commit --> security_tests
+    post_commit --> pre_push
+    pre_push --> security_gitleaks
+    pre_push --> security_tests
     classDef reports stroke-dasharray: 4 3
-    class post_commit reports
+    class pre_commit,post_commit reports
 ```

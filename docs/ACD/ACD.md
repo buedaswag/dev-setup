@@ -41,22 +41,19 @@ One agent at a time:
   - Or at the claude root file if you’re working in multiple terraform repositories for example
     - For example if you work in terraform modules that all have roughly the same structure, and way to test, then specify that here
 
-TODO - put this link in the references and add a link to the references line here
-learn more: Section - Configuration mechanisms - https://beyond.minimumcd.org/docs/agentic-cd/getting-started/agent-setup/
+Learn more: Configuration mechanisms, in [References](#references)
 
 ### hooks
 
 - The two you'll most likely have:
-  - **pre-commit** - runs before the commit, reports but never blocks (commit is a local save point; pre-push/CI are the gates). Ex: unit tests
+  - **pre-commit** - Ex: unit tests, but does not block or batch size will increase, I rather fix in post commit
   - **post-commit** - runs after the commit exists, can't block anything. Ex: security checks, doc updates, lint fixes
 
 `.githooks/pre-commit`
 
 ```bash
 #!/bin/bash
-# Report, never block: a non-zero exit here would abort the commit.
-python -m unittest discover tests || echo "Tests FAILED -- commit allowed, fix before pushing." >&2
-exit 0
+python -m unittest discover tests
 ```
 
 `.githooks/post-commit`
@@ -152,6 +149,8 @@ TODO just slap this table here and bold the meaning col
 
 - Overview of the ACD workflow
   - Section - The ACD workflow in https://beyond.minimumcd.org/docs/agentic-cd/
+- Configuration mechanisms (where CLAUDE.md and other agent config lives)
+  - Section - Configuration mechanisms in https://beyond.minimumcd.org/docs/agentic-cd/getting-started/agent-setup/
 - Bryan’s talk at devopsdays Dallas, Texas https://www.youtube.com/watch?v=8u_FVTRtqrw
 
 ## Next up:

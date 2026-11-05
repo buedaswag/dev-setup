@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Secret gate: scripts/secret_scan.sh says why it runs here and how it scans.
+# Secret scan, reporting only: a commit is a local save point and this never blocks
+# one. pre-push is the gate. scripts/secret_scan.sh says why.
 #
-# Install (once per repo):
+# Install (once per clone):
 #   git config core.hooksPath .githooks
-#
-# Bypass, when I have looked at the finding and it is wrong:
-#   git commit --no-verify
 
-# pipeline: blocks
-scripts/secret_scan.sh "$@" || exit 1
+# pipeline: advisory
+scripts/secret_scan.sh || echo "pre-commit: commit allowed -- the PUSH WILL BLOCK until this is fixed." >&2
+exit 0

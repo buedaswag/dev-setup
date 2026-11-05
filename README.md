@@ -60,8 +60,11 @@ change inside the project:
 
 ## Secret leak gate
 
-`.githooks/pre-commit` runs gitleaks (Docker, pinned) on every commit and blocks any that carries
-a credential — enable with `git config core.hooksPath .githooks`.
+gitleaks (Docker, pinned), via `scripts/secret_scan.sh`. Enable with `git config core.hooksPath .githooks`.
+
+- **`.githooks/pre-commit`** scans the work tree and reports. It never blocks a commit.
+- **`.githooks/pre-push`** scans every commit not yet on the remote and blocks the push on a
+  finding. It also blocks when the scan can't run (no Docker).
 
 Tests: `python3 -m unittest discover tests/`
 
@@ -77,10 +80,12 @@ Tests: `python3 -m unittest discover tests/`
 ```mermaid
 graph LR
     agent["<b>Agent</b><br/>batch guard"]
-    commit["<b>git commit</b><br/>pre-commit, post-commit (1 of 2 gate)"]
+    commit["<b>git commit</b><br/>pre-commit, post-commit (0 of 2 gate)"]
+    push["<b>git push</b><br/>pre-push"]
     ci["<b>CI — on push</b><br/>gitleaks, tests"]
     agent --> commit
-    commit --> ci
+    commit --> push
+    push --> ci
 ```
 
 </details>

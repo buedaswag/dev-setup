@@ -280,7 +280,7 @@ class TestAskThenCommit(unittest.TestCase):
         self.assertEqual(repo.commits(), 1)
 
     def test_a_rejected_commit_goes_back_to_the_agent(self):
-        """The pre-commit hook (the secret gate, here) still gates the auto-commit."""
+        """A pre-commit hook that rejects still stops the auto-commit."""
         repo = Repo(self, batch(commit_at=1))
         hooks = repo.path / ".git" / "hooks"
         (hooks / "pre-commit").write_text("#!/bin/sh\necho 'secret found' >&2\nexit 1\n")
