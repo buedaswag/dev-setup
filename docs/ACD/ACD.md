@@ -18,9 +18,10 @@ One agent at a time:
     - https://beyond.minimumcd.org/docs/optimize/hypothesis-driven-development/
     - tldr: **“We believe [change] will produce [outcome] because [reason].”**
 2. Loop:
-   - ATDD basic paragraph - https://beyond.minimumcd.org/docs/optimize/small-batches/#atdd-connecting-scenarios-to-daily-integration
+   - ATDD basic paragraph 
+    - TODO just link this to the text bulet above https://beyond.minimumcd.org/docs/optimize/small-batches/#atdd-connecting-scenarios-to-daily-integration
     - tldr:
-        1. Pick one BDD scenario.
+        1. Pick one BDD scenario. TODO wtf is a bdd scenario? we can link to this part of this very doc, and then ppl can click to move inside the smaller cod if they want ? User-facing behavior
         2. Write the acceptance test first.
         3. Write just enough code to pass.
         4. Refactor.
