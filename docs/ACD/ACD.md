@@ -130,11 +130,31 @@ https://beyond.minimumcd.org/docs/foundations/work-decomposition/
   - Happy path first - implement the success case first
 
 The most important (and nuanced) slicing strategy:
-![alt text](image-3.png)
-    TODO: just slap this bitch on the doc.
 
-TODO just slap this table here and bold the meaning col
-![alt text](image-2.png)
+**Vertical slicing.** A vertical slice cuts through all layers of the application to deliver a thin but complete slice of functionality.
+
+**Vertical slice (correct):**
+
+> "As a user, I can log in with my email and password."
+>
+> This slice touches the UI (login form), the API (authentication endpoint), and the database (user lookup). The slice is deployable and testable end-to-end.
+
+**Horizontal slice (anti-pattern):**
+
+> "Build the database schema for user accounts." "Build the authentication API." "Build the login form UI."
+>
+> Each horizontal slice is incomplete on its own. None is deployable. None is testable end-to-end. They create dependencies between work items and block flow.
+
+Good stories follow INVEST:
+
+| Criterion | Meaning | Why it matters for CD |
+|---|---|---|
+| Independent | **Can be developed and deployed without waiting for other stories** | Enables parallel work |
+| Negotiable | **Details can be discussed and adjusted** | Helps find the smallest valuable slice |
+| Valuable | **Delivers something meaningful to the user or the system** | Prevents technical stories that stall the product |
+| Estimable | **Small enough that the team can reasonably estimate it** | Large stories hide unknowns |
+| Small | **Completable within 2 days** | Enables daily integration |
+| Testable | **Has clear acceptance criteria that can be automated** | Supports the testing foundation |
 
 (see loop above in Starting point - how we are developing)
 "How to structure agent sessions so context stays manageable, commits stay small, and the pipeline stays green" - https://beyond.minimumcd.org/docs/agentic-cd/architecture/small-batch-sessions/
