@@ -25,7 +25,7 @@ How my machine and my Claude Code agents are set up. Lives at `~/ws/dev-setup`.
 | --- | --- | --- |
 | `global-claude/CLAUDE.md`, `global-claude/settings.json` | Copies of my global `~/.claude` config | `~/.claude` — `global-claude/sync.sh` (a `Stop` hook) copies changes here and commits them |
 | `global-claude/guards/` | The command guard engine | Here — `~/.claude/settings.json` runs it from this repo |
-| `global-claude/skills/` | My global skills (`/commit`) | Here — linked in: `ln -sfn ~/ws/dev-setup/global-claude/skills/commit ~/.claude/skills/commit` |
+| `global-claude/skills/` | My global skills (`/commit`) | Here — link them in: `mkdir -p ~/.claude/skills; for s in ~/ws/dev-setup/global-claude/skills/*; do ln -sfn "$s" ~/.claude/skills/; done` |
 | `.claude/` | This repo's own project config (`plans/`, `guard-rules.json`), same as any project | Here |
 
 On a new laptop, link the global `CLAUDE.md` rather than copying it:
