@@ -34,26 +34,27 @@ function tfcleanup() {
     find . -name "terraform.tfstate.d" -type d -exec rm -rf {} +
 }
 
-# git add + commit, message built from the first 10 changed paths.
+# git add + commit. `gac "message"` commits with that message; bare `gac` builds one from
+# the first 10 paths actually staged (`git add .` only stages the current directory).
 gac() {
-    # Get the list of modified files (first 10 files)
-    modified_files=$(git status -s | head -n 10 | awk '{print $2}')
+    git add .
 
-    # Combine modified files into a commit message
-    if [[ -z "$modified_files" ]]; then
+    staged_files=$(git diff --cached --name-only | head -n 10)
+    if [[ -z "$staged_files" ]]; then
         echo "No changes to commit."
         return 1
     fi
-    commit_message="Modified files: $(echo "$modified_files" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
 
-    # Add all changes
-    git add .
+    if [[ -n "$1" ]]; then
+        commit_message="$1"
+    else
+        commit_message="Modified files: $(echo "$staged_files" | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
+    fi
 
-    # Commit with the list of modified files as the message
     git commit -m "$commit_message"
 }
 
-# gac, then gp (aliases.zsh): push the current branch to origin.
+# gac, then gp (aliases.zsh): push the current branch to origin. Takes gac's message.
 gacp() {
-    gac && gp
+    gac "$@" && gp
 }

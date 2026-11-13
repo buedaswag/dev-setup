@@ -1,7 +1,7 @@
 """zsh/aliases.zsh and functions.zsh: the git shortcuts, including those replacing omz's.
 
 `gc "message" [flags]` commits with that message; `gp` pushes the current branch to
-origin; `gpull` pulls it from origin; `gacp` adds, commits and pushes. omz's git plugin defines gc and gp
+origin; `gpull` pulls it from origin; `gac ["message"]` adds and commits; `gacp ["message"]` also pushes. omz's git plugin defines gc and gp
 (`gc='git commit --verbose'`, `gp='git push'`) and aliases.zsh is sourced after it,
 so these tests define those aliases first, the way a real shell would have them.
 
@@ -133,6 +133,39 @@ class GitShortcutsTest(unittest.TestCase):
             self.git("rev-parse", "feature", cwd=origin),
             self.git("rev-parse", "HEAD"),
         )
+
+    def test_gacp_message_becomes_the_commit_message(self):
+        self.add_origin()
+        (self.repo / "new").write_text("new\n")
+        result = self.shell('gacp "added my notes"')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.subjects()[0], "added my notes")
+
+    def test_gac_message_becomes_the_commit_message(self):
+        result = self.shell('gac "added my notes"')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.subjects(), ["added my notes"])
+
+    def test_gac_without_a_message_lists_only_the_files_it_commits(self):
+        self.git("commit", "-q", "-m", "first")
+        (self.repo / "notes").mkdir()
+        (self.repo / "notes" / "mine.md").write_text("notes\n")
+        (self.repo / "file").write_text("two\n")
+        (self.repo / "outside").write_text("outside\n")
+        # `git add .` from a subdirectory stages only that subdirectory.
+        script = f'source "{FUNCTIONS_FILE}"\ngac\n'
+        result = subprocess.run(
+            ["zsh", "-f"], input=script, cwd=self.repo / "notes",
+            env=self.env, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.subjects()[0], "Modified files: notes/mine.md")
+
+    def test_gac_with_nothing_to_commit_fails(self):
+        self.git("commit", "-q", "-m", "first")
+        result = self.shell("gac")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(self.subjects(), ["first"])
 
 
 class HistoryGrepTest(unittest.TestCase):
