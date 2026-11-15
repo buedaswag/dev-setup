@@ -12,9 +12,6 @@ Everything from a command an agent proposes to the last gate.
 
 ```mermaid
 graph TD
-    subgraph agent["Agent"]
-        batch_guard["<div style='text-align:left'><b>batch guard</b><br/><i>.claude/guard-rules.json</i></div>"]
-    end
     subgraph commit["git commit"]
         pre_commit["<div style='text-align:left'><b>pre-commit</b><br/><i>.githooks/pre-commit</i><br/>runs:<br/>◦ scripts/secret_scan.sh</div>"]
         post_commit["<div style='text-align:left'><b>post-commit</b><br/><i>.githooks/post-commit</i><br/>runs:<br/>◦ scripts/pipeline_diagram.py</div>"]
@@ -26,8 +23,6 @@ graph TD
         security_gitleaks["<div style='text-align:left'><b>gitleaks</b><br/><i>.github/workflows/security.yml</i></div>"]
         security_tests["<div style='text-align:left'><b>tests</b><br/><i>.github/workflows/security.yml</i></div>"]
     end
-    batch_guard --> pre_commit
-    batch_guard --> post_commit
     post_commit --> pre_push
     pre_push --> security_gitleaks
     pre_push --> security_tests
