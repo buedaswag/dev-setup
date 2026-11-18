@@ -57,28 +57,6 @@
   },
   "model": "opus",
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/ws/dev-setup/global-claude/guards/command_guard.py\" || exit 2"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/ws/dev-setup/global-claude/guards/batch_guard.py\""
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "",

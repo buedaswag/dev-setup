@@ -29,13 +29,9 @@ one revert, not an archaeology session.
 A rule written in prose is a suggestion: an agent reads it and still proposes the thing it
 says not to do, and I'm the one who has to say No at the permission prompt.
 
-When a rule matters, make it a static check. `global-claude/guards/command_guard.py` in
-`~/ws/dev-setup` is a `PreToolUse` hook that matches every Bash command before the prompt
-appears and either rewrites it to the documented equivalent or denies it with a reason the
-agent can act on. No prompt, no LLM in the loop.
-
-Per-project rules go in `.claude/guard-rules.json` in the project. The engine is shared; the
-rules are not. See that repo's README for wiring a project up.
+When a rule matters, make it a static check: a hook or a git hook, not a paragraph. The one
+working example is `~/ws/personal/landing-page/scripts/guards/`, Claude Code hooks wired in that
+repo only. Its README's "Agent guardrails" says what they do.
 
 ## The Code Is The Source Of Truth
 
