@@ -45,11 +45,13 @@ guardrails"), the only repo that uses them, and may be deprecated.
 
 ## Secret leak gate
 
-gitleaks (Docker, pinned), via `scripts/secret_scan.sh`. Enable with `git config core.hooksPath .githooks`.
+gitleaks, pinned by version, via `scripts/secret_scan.sh`. Install with `brew install gitleaks`, enable
+with `git config core.hooksPath .githooks`. A different gitleaks version blocks like a missing one:
+bump `GITLEAKS_VERSION` in the script and in `.github/workflows/security.yml` together.
 
 - **`.githooks/pre-commit`** scans the work tree and reports. It never blocks a commit.
 - **`.githooks/pre-push`** scans every commit not yet on the remote and blocks the push on a
-  finding. It also blocks when the scan can't run (no Docker).
+  finding. It also blocks when the scan can't run (no gitleaks, or the wrong version).
 
 Tests: `python3 -m unittest discover tests/`
 

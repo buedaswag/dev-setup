@@ -11,40 +11,50 @@
 # heads-up and the push is the gate. The GitHub Action in .github/workflows/security.yml
 # is a backstop for what gets in around the push hook, not the gate itself.
 #
-# Scanner is gitleaks in Docker, pinned by digest:
-#   - Docker, so the gate does not depend on an activated venv being on PATH.
-#     zsh/py-venvs.sh auto-activates one, and a gate that silently stops gating the
-#     day that changes is worse than no gate.
-#   - the same tool CI runs, so local and CI cannot drift apart.
-#   - by digest, because a floating tag changes the gate under me and re-pulls on
-#     every run, turning 30ms into a network round trip.
-# Pull and run only. Never build -- a hook that builds is a hook I disable.
+# Scanner is the gitleaks binary, pinned by version:
+#   - found by absolute path when PATH misses it, so the gate does not depend on a
+#     shell's PATH. Hooks run from GUI git clients get a thin one, and a gate that
+#     silently stops gating the day that changes is worse than no gate.
+#   - the same version CI runs, so local and CI cannot drift apart.
+#   - pinned, because Homebrew upgrades it whenever it likes. A different version is
+#     "could not run": the gate stops until I bump the pin, instead of changing
+#     under me.
 #
 set -uo pipefail
 
-SCANNER="ghcr.io/gitleaks/gitleaks@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055"
-# The seam the tests use to take the scanner away. Normal runs never set it.
-DOCKER="${SECRET_SCAN_DOCKER:-docker}"
+GITLEAKS_VERSION="8.30.1"
 
-# gitleaks exits 1 for findings. Anything else is the scanner itself failing --
-# daemon down, image unpullable, no network on a cold cache. Both are non-zero,
-# but they are different problems and the message should say which.
+# The seam the tests use to swap the scanner. Normal runs never set it.
+GITLEAKS="${SECRET_SCAN_GITLEAKS:-}"
+if [ -z "$GITLEAKS" ]; then
+  GITLEAKS="$(command -v gitleaks)"
+  for candidate in /opt/homebrew/bin/gitleaks /usr/local/bin/gitleaks; do
+    [ -z "$GITLEAKS" ] && [ -x "$candidate" ] && GITLEAKS="$candidate"
+  done
+fi
+
+# gitleaks exits 1 for findings. Anything else is the scanner itself failing. Both
+# are non-zero, but they are different problems and the message should say which.
 #
 # --verbose is what prints the file and line of each finding; without it the output
 # is a bare "leaks found: 3", which tells me there is a problem and not where.
 # --redact keeps the value itself out of the terminal and my scrollback.
-# Docker's own options go in RUN_OPTS; the arguments are gitleaks'.
-RUN_OPTS=()
 scan() {
   local what="$1" strip="$2"
   shift 2
-  local output status
+  local output status found
   # No scanner is not a pass -- it is "could not scan", and the caller decides.
-  if ! command -v "$DOCKER" >/dev/null 2>&1; then
-    echo "secret scan: could not run -- docker not found. Start Docker." >&2
+  if [ -z "$GITLEAKS" ] || [ ! -x "$GITLEAKS" ]; then
+    echo "secret scan: could not run -- gitleaks not found. brew install gitleaks" >&2
     return 2
   fi
-  output="$("$DOCKER" run --rm "${RUN_OPTS[@]}" "$SCANNER" "$@" --redact --no-banner --verbose 2>&1)"
+  found="$("$GITLEAKS" version 2>/dev/null)"
+  if [ "${found#v}" != "$GITLEAKS_VERSION" ]; then
+    echo "secret scan: could not run -- gitleaks is ${found:-unknown}, pinned to $GITLEAKS_VERSION." >&2
+    echo "Bump GITLEAKS_VERSION in scripts/secret_scan.sh and in .github/workflows/security.yml." >&2
+    return 2
+  fi
+  output="$("$GITLEAKS" "$@" --redact --no-banner --no-color --verbose 2>&1)"
   status=$?
   [ $status -eq 0 ] && return 0
   if [ $status -ne 1 ]; then
@@ -52,7 +62,7 @@ scan() {
     echo "$output" >&2
     return 2
   fi
-  # Paths come back rooted at the container mount; show them as I would type them.
+  # Paths come back rooted at the scan directory; show them as I would type them.
   echo "secret scan: possible secrets in $what." >&2
   echo "${output//$strip/}" >&2
   echo "Values above are redacted." >&2
@@ -70,17 +80,12 @@ scan() {
 # next is still found -- it is in what gets pushed.
 if [ "${1:-}" = "--pushed" ]; then
   top="$(git rev-parse --show-toplevel)" || exit 2
-  common="$(git rev-parse --path-format=absolute --git-common-dir)" || exit 2
-  # Mounted at their own paths so a worktree's `.git` file, which names the common
-  # dir by absolute path, still resolves inside the container.
-  RUN_OPTS=(-v "$top:$top:ro" -w "$top")
-  case "$common" in "$top"/*) ;; *) RUN_OPTS+=(-v "$common:$common:ro") ;; esac
 
   worst=0
   while read -r _ local_sha _ _; do
     [ -z "${local_sha//0/}" ] && continue
     scan "commits about to be pushed" "$top/" \
-      detect --source "$top" --log-opts="$local_sha --not --remotes"
+      git --log-opts="$local_sha --not --remotes" "$top"
     status=$?
     [ $status -gt $worst ] && worst=$status
   done
@@ -104,7 +109,7 @@ fi
 # Scan what a commit could actually carry: tracked files plus untracked ones that
 # .gitignore does not exclude. Untracked counts -- `git add -A` is one keystroke.
 #
-# gitleaks has no flag for this. `--no-git` walks the filesystem and ignores
+# gitleaks has no flag for this. `dir` walks the filesystem and ignores
 # .gitignore entirely, which meant scanning __pycache__, and would mean node_modules
 # and .venv in any other repo. Those cannot reach a commit, so a finding there is
 # always a false positive, and a gate that cries wolf is a gate I switch off. So the
@@ -126,5 +131,4 @@ if git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   SCAN_ROOT="$STAGE"
 fi
 
-RUN_OPTS=(-v "$SCAN_ROOT:/scan:ro")
-scan "the work tree" "/scan/" detect --no-git --source /scan
+scan "the work tree" "$SCAN_ROOT/" dir "$SCAN_ROOT"

@@ -37,8 +37,8 @@ SCANNER_SCRIPT = REPO_ROOT / "scripts" / "secret_scan.sh"
 # .gitleaks.toml rule that would quietly excuse this whole file forever.
 PLANTED_SECRET = 'github_token = "ghp_Ku4mR2xQ7vTnL9bWsZ0aYcHj5dEgF8pO1iN3"\n'  # gitleaks:allow
 
-# Points the scanner at a docker that does not exist: the scan cannot run.
-NO_DOCKER = {"SECRET_SCAN_DOCKER": "/nonexistent/docker"}
+# Points the script at a gitleaks that does not exist: the scan cannot run.
+NO_SCANNER = {"SECRET_SCAN_GITLEAKS": "/nonexistent/gitleaks"}
 
 
 def run_scanner(target, env=None):
@@ -189,28 +189,35 @@ class TestWhatTheScanSees(unittest.TestCase):
         """No scanner is "could not scan", never "clean". The hooks decide what that costs."""
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "notes.md").write_text("clean\n")
-            result = run_scanner(tmp, env=NO_DOCKER)
+            result = run_scanner(tmp, env=NO_SCANNER)
 
         self.assertNotEqual(result.returncode, 0, "scan exited 0 with no scanner available")
 
-    def test_scanner_image_is_pinned_by_digest(self):
-        """A floating tag means the gate silently changes under me.
+    def test_scanner_is_pinned_by_version(self):
+        """A floating scanner means the gate silently changes under me.
 
-        `:latest` also re-pulls, which turns a 30ms hook into a network round trip
-        at every commit.
+        Homebrew upgrades gitleaks whenever it likes, so the script names the one
+        version it trusts, and the next test proves it refuses any other.
         """
-        source = SCANNER_SCRIPT.read_text()
-        self.assertNotRegex(
-            source,
-            r"gitleaks:(latest|v?\d)",
-            "scanner image is pinned by tag, not digest -- use "
-            "ghcr.io/gitleaks/gitleaks@sha256:...",
-        )
         self.assertRegex(
-            source,
-            r"gitleaks@sha256:[0-9a-f]{64}",
-            "no digest-pinned gitleaks image found in scripts/secret_scan.sh",
+            SCANNER_SCRIPT.read_text(),
+            r'GITLEAKS_VERSION="\d+\.\d+\.\d+"',
+            "no pinned GITLEAKS_VERSION found in scripts/secret_scan.sh",
         )
+
+    def test_wrong_scanner_version_is_not_a_pass(self):
+        """A `brew upgrade` stops the gate until I bump the pin -- loudly, not silently."""
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / "gitleaks"
+            fake.write_text("#!/bin/sh\necho 0.0.1\nexit 0\n")
+            fake.chmod(0o755)
+            scan_dir = Path(tmp) / "tree"
+            scan_dir.mkdir()
+            (scan_dir / "notes.md").write_text("clean\n")
+            result = run_scanner(scan_dir, env={"SECRET_SCAN_GITLEAKS": str(fake)})
+
+        self.assertNotEqual(result.returncode, 0, "scan passed on an unpinned gitleaks version")
+        self.assertIn("0.0.1", result.stderr, "did not say which version it found")
 
     def test_nothing_builds_anything(self):
         """Pull-and-run only. A hook that builds is a hook I will disable."""
@@ -238,7 +245,7 @@ class TestPreCommitReports(unittest.TestCase):
 
     def test_commit_without_a_scanner_goes_through_and_says_so(self):
         repo = ScratchRepo(self)
-        result = repo.commit("notes.md", "clean\n", env=NO_DOCKER)
+        result = repo.commit("notes.md", "clean\n", env=NO_SCANNER)
 
         self.assertEqual(result.returncode, 0, f"pre-commit blocked the commit:\n{result.stderr}")
         self.assertEqual(repo.commits(), 1)
@@ -303,7 +310,7 @@ class TestPrePushBlocks(unittest.TestCase):
         """Fail closed: a push that could not be scanned does not go."""
         repo = ScratchRepo(self)
         repo.commit("notes.md", "clean\n")
-        result = repo.push(env=NO_DOCKER)
+        result = repo.push(env=NO_SCANNER)
 
         self.assertNotEqual(result.returncode, 0, "push went through with no scanner -- it failed open")
         self.assertFalse(repo.remote_has("master"))
@@ -314,7 +321,7 @@ class TestPrePushBlocks(unittest.TestCase):
         repo.commit("notes.md", "clean\n")
         repo.git("branch", "feature")
         repo.push("master", "feature", no_verify=True)
-        result = repo.push(":feature", env=NO_DOCKER)
+        result = repo.push(":feature", env=NO_SCANNER)
 
         self.assertEqual(result.returncode, 0, f"deleting a branch was blocked:\n{result.stderr}")
         self.assertFalse(repo.remote_has("feature"))
