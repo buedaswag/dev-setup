@@ -55,6 +55,9 @@
     ],
     "defaultMode": "acceptEdits"
   },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE": "1"
+  },
   "model": "opus",
   "hooks": {
     "SessionStart": [
